@@ -103,7 +103,8 @@ Every module is an entry in `nodes` with a unique `id` and a `kind`. Entity fiel
 | Field | YAML | What it does |
 |---|---|---|
 | Display name | `name` | Name in the picture label and the tile. |
-| **Label in the picture** → Icon | `icon` | An `mdi:` icon. With an icon or *Show value* the module gets a label in the picture. |
+| **Label in the picture** → Show name or icon | `showLabel` | `none` (default), `name` display name, `icon`, or `both`. |
+| Icon | `icon` | Any `mdi:` icon for `icon` / `both`. Empty = the module's default icon. |
 | Show value | `showState` | `yes` shows the current value in the label. |
 | Position X / Y (%) | `x`, `y` | Moves the module's point in the picture. Empty = default place. Needed for an own picture; 0/0 is the top left corner. |
 | **More options** → Sign | `invert` | `true` when your sensor reports the opposite direction (grid, solar, vehicle, device). |

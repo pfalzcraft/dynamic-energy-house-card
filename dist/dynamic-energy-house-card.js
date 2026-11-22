@@ -1,8 +1,9 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "0.34.0";
+const ENERGY_HOUSE_VERSION = "0.35.0";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};
+const KIND_ICONS={house:"mdi:home",grid:"mdi:transmission-tower",pv:"mdi:solar-power",battery:"mdi:battery",ev:"mdi:car-electric",water:"mdi:water",device:"mdi:power-plug",climate:"mdi:molecule-co2"};
 const SCENE_ICONS={heatpump:"mdi:heat-pump-outline",washer:"mdi:washing-machine",dryer:"mdi:tumble-dryer"};
 const ICONS = {house:"home-outline",grid:"transmission-tower",pv:"solar-power",battery:"battery-charging",ev:"car-electric",water:"water-outline",room:"floor-plan",climate:"molecule-co2",device:"power-plug-outline"};
 const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -297,7 +298,8 @@ function photoScene(c,states,history={},previousLevels={}){
     const fill=level===null?'<text x="14" y="41" text-anchor="middle">?</text>':`<rect x="5" y="${53-height}" width="16" height="${height}" fill="#61dfae">${animate("height",old*.36,height)}${animate("y",53-old*.36,53-height)}</rect>`;
     return hit(n,`<g transform="translate(${x-13} ${y-46})"><rect width="27" height="59" rx="3" fill="${bp?"#061423":"url(#enclosure)"}" stroke="${bp?NEON:"#526171"}"/><rect x="4" y="16" width="18" height="38" rx="2" fill="${bp?"#0c2a3d":"#32454e"}"/>${fill}<path d="M7 8h12" stroke="#47616b" stroke-width="2"/></g>`);
   }).join("");
-  const labelled=n=>n.icon||n.showState==="yes"||(n.showState==null&&(n.pinText||n.showName==="yes"));
+  const showsName=n=>n.showLabel==="name"||n.showLabel==="both",showsIcon=n=>n.showLabel?n.showLabel==="icon"||n.showLabel==="both":!!n.icon;
+  const labelled=n=>showsName(n)||showsIcon(n)||n.showState==="yes"||(n.showState==null&&(n.pinText||n.showName==="yes"));
   // Batteries, vehicles and devices of the same kind share one label, each value stays clickable on its own.
   const merged=["battery","ev","device"],groups=[];
   // Appliances drawn in the picture keep their own label next to them.
@@ -311,6 +313,7 @@ function photoScene(c,states,history={},previousLevels={}){
     if(n.kind==="grid"&&labelled(n)){
       const w=signedWatts(n,states),exported=history[n.exported];
       const rows=n.display==="period"?[["import",energyText(history[n.energy])],...(exported>0?[["export",energyText(exported)]]:[])]:[[w!==null&&w<0?"export":"import",w===null?"–":power(w)]];
+      if(showsName(n))rows[0][1]=nameOf(n)+" "+rows[0][1];
       const width=Math.min(285,Math.max(...rows.map(([,v])=>52+[...v].length*10)));
       const left=Math.max(2,Math.min(898-width,x-width/2)),top=Math.max(2,Math.min(H-34*rows.length,y-1-34*rows.length));
       const icon=k=>customElements.get("ha-icon")?`<ha-icon icon="mdi:transmission-tower-${k==="import"?"export":"import"}"></ha-icon>`:(k==="import"?"↓":"↑");
@@ -330,9 +333,11 @@ function photoScene(c,states,history={},previousLevels={}){
     if(labelled(n)){
       const text=m=>{const show=m.showState==="yes"||(m.showState==null&&(m.pinText||m.showName==="yes"));
         const v=!show?"":m.kind==="ev"&&m.soc?reading(states[m.soc]):primaryValue(m,states,history);
+        if(showsName(m))return [nameOf(m),v].filter(Boolean).join(" ");
         return v&&m.kind==="device"&&group.length>1?nameOf(m)+" "+v:v;};
       const parts=group.map(m=>[m,text(m)]).filter(([,v])=>v),label=parts.map(([,v])=>v).join(" · ");
-      const icon=n.icon||SCENE_ICONS[n.scene]||"",width=Math.min(285,Math.max(34,(icon?32:10)+[...label].length*10+10));
+      // Without a showLabel choice (older configs) the icon appears as before: own icon or the device's picture icon.
+      const icon=n.showLabel?(showsIcon(n)?n.icon||SCENE_ICONS[n.scene]||KIND_ICONS[n.kind]:""):n.icon||SCENE_ICONS[n.scene]||"",width=Math.min(285,Math.max(34,(icon?32:10)+[...label].length*10+10));
       // The battery is drawn around its point, so its label hangs below the enclosure instead of covering it.
       const points=group.map(m=>where.get(m.id)),below=n.kind==="battery";
       const cx=points.reduce((sum,p)=>sum+p[0],0)/points.length,edge=below?Math.max(...points.map(p=>p[1]))+17:Math.min(...points.map(p=>p[1]))-35;
@@ -789,7 +794,8 @@ class HouseEditor extends HTMLElement{
           (n.kind==="device"?choose("Show in the picture","scene",n.scene||"",[["","Label only"],["heatpump","Heat pump"],["washer","Washing machine (basement)"],["dryer","Dryer (basement)"]],"Draws the device in the 3D house with basement.")+hint("Devices are part of the house consumption and are not used to calculate it."):"")+kwh;
       const values=!!(n.icon||n.showState==="yes"||(n.showState==null&&(n.pinText||n.showName==="yes"))),roomName=n.showRoomName==="yes";
       const label=(n.kind==="room"?choose("Show in the picture","roomLabel",values&&roomName?"both":values?"values":roomName?"name":"none",[["none","Nothing"],["name","Room name"],["values","Values"],["both","Room name and values"]],"Values are one row per entity: lights on, cover position, temperature."):
-        field("Icon","icon",n.icon,"pinIcons","An mdi: icon. With an icon or “Show value” the module gets a label in the picture.")+
+        choose("Show name or icon","showLabel",n.showLabel||(n.icon?"icon":"none"),[["none","Off"],["name","Display name"],["icon","Icon"],["both","Name and icon"]])+
+        (["icon","both"].includes(n.showLabel||(n.icon?"icon":"none"))?field("Icon","icon",n.icon,"pinIcons","Any mdi: icon. Empty = the module's default icon."):"")+
         choose("Show value","showState",n.showState??(n.pinText||n.showName==="yes"?"yes":"no"),[["no","Off"],["yes","On"]]))+
         '<div class="pair">'+field("Position X (%)","x",n.x)+field("Position Y (%)","y",n.y)+"</div>"+hint("Empty = default place. Needed for your own picture: 0/0 is the top left corner.");
       const advanced=(electric?choose("Sign","invert",n.invert?"yes":"no",[["no","As measured"],["yes","Invert"]],"Use “Invert” when your sensor reports the opposite direction."):"")+

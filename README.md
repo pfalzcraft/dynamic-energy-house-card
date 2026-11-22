@@ -1,5 +1,7 @@
 # Energy House Card
 
+![Energy House Card](https://raw.githubusercontent.com/pfalzcraft/energy-house-card/main/docs/preview.jpg)
+
 Die Standardansicht zeigt einen eingerichteten, gerenderten Hausschnitt. Dachmodule, Fahrzeug, Speicher und Messpunkte werden passend zur Konfiguration eingeblendet. Leitungen erscheinen nur für Strecken, die im Builder mit einem Leistungssensor angelegt sind. Leistungsimpulse laufen in die gemessene Richtung. PV und Hauslast stehen direkt am Gebäude. Unter der Szene öffnet „Geräte und Messwerte“ die vollständige Übersicht.
 
 Hintergrund, Kacheln, Schaltflächen, Schrift und Textfarben folgen dem in HA gewählten Theme (hell oder dunkel). Nur die Wert-Labels im Bild bleiben dunkel, damit sie auf dem Foto lesbar sind.

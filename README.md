@@ -174,7 +174,7 @@ Any number, e.g. heat pump, washer, dryer, fridge or office. Devices are part of
 | Field | YAML | What it does |
 |---|---|---|
 | Floor | `floor` | `UG` basement, `EG` ground floor, `OG` upper floor, `DG` attic. Places the room in the picture and the floor plan. |
-| Room name in the label | `showRoomName` | `yes` adds the display name as the first row of the room label. |
+| **Label in the picture** → Show in the picture | `showState`, `showRoomName` | Nothing, room name, values, or room name and values. Values are one row per entity. Rooms have no icon. |
 | Entity or group | `entities` | Lights, covers, switches, climate or sensors, or groups of them. Each gets a row in the label (lights on, average cover position, temperature). Tap a row to open its HA dialog; tap the room dot to switch its lights and covers. |
 | Name in the label | `names` | Own short name per entity, e.g. `names: {light.living_group: Ceiling}`. Empty = the HA name. |
 | Show name | `showNames` | Per entity `true` or `false`. Without a choice names are shown when the room has several entities. |
@@ -207,7 +207,7 @@ Routes run at right angles: vertically out of the module, horizontally at the he
 
 Choose Now, Today, Week, Month, Year or Range below the picture. “Now” shows momentary power; every other period shows the energy from the energy meters, including the running hour. Range offers From/To dates (whole days in the HA time zone); the default is the last seven days.
 
-Tap a module to open its HA dialog. Background, tiles, buttons and text follow your HA theme (light or dark); only the value labels in the picture stay dark so they remain readable on the photo. Animations respect reduced motion.
+Tap a module to open its HA dialog, or, for rooms and modules with a control entity, its controls directly below the picture. Background, tiles, buttons and text follow your HA theme (light or dark); only the value labels in the picture stay dark so they remain readable on the photo. Animations respect reduced motion.
 
 ## Repository
 

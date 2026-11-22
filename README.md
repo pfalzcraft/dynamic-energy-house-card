@@ -16,7 +16,7 @@ Rooms take any number of entities or groups: lights and light groups, covers and
 
 ## Routes and colours are yours
 
-Routes are the lines the power runs along. You decide which modules they connect, which sensor measures them (one per direction if needed), the colour for positive and negative power, and the height of the horizontal line in the picture.
+Routes are the lines the power runs along. You decide which modules they connect, which sensor measures them (one per direction if needed), the colour for positive and negative power, and where the line runs: at a height you choose or through any number of waypoints.
 
 ![Custom route colours and positions](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/routes.jpg)
 
@@ -98,12 +98,11 @@ All fields can be set in the editor. The YAML key is given for people who prefer
 
 ### Common module fields
 
-Every module is an entry in `nodes` with a unique `id` and a `kind`.
+Every module is an entry in `nodes` with a unique `id` and a `kind`. Entity fields suggest all matching entities from Home Assistant; type part of the ID or name to narrow the list.
 
 | Field | YAML | What it does |
 |---|---|---|
 | Display name | `name` | Name in the picture label and the tile. |
-| Suggest entities from area / device | `area`, `device` | Only narrows the entity suggestions in the editor. Entity IDs can always be typed in. |
 | **Label in the picture** → Icon | `icon` | An `mdi:` icon. With an icon or *Show value* the module gets a label in the picture. |
 | Show value | `showState` | `yes` shows the current value in the label. |
 | Position X / Y (%) | `x`, `y` | Moves the module's point in the picture. Empty = default place. Needed for an own picture; 0/0 is the top left corner. |
@@ -175,7 +174,10 @@ Any number, e.g. heat pump, washer, dryer, fridge or office. Devices are part of
 | Field | YAML | What it does |
 |---|---|---|
 | Floor | `floor` | `UG` basement, `EG` ground floor, `OG` upper floor, `DG` attic. Places the room in the picture and the floor plan. |
+| Room name in the label | `showRoomName` | `yes` adds the display name as the first row of the room label. |
 | Entity or group | `entities` | Lights, covers, switches, climate or sensors, or groups of them. Each gets a row in the label (lights on, average cover position, temperature). Tap a row to open its HA dialog; tap the room dot to switch its lights and covers. |
+| Name in the label | `names` | Own short name per entity, e.g. `names: {light.living_group: Ceiling}`. Empty = the HA name. |
+| Show name | `showNames` | Per entity `true` or `false`. Without a choice names are shown when the room has several entities. |
 
 ### Grid CO2 module
 
@@ -195,10 +197,11 @@ Routes (`routes`) are the lines the power runs along.
 | From / To | `from`, `to` | The module IDs the line connects. |
 | Power From → To | `entity` | W or kW. Negative values reverse the arrow. |
 | Power To → From | `reverse` | Optional second sensor, e.g. battery charging and discharging. The larger value sets the direction. |
-| Height of the line (Y %) | `y` | Where the horizontal part runs. Empty = middle. |
+| Height of the line (Y %) | `y` | Where the horizontal part runs. Empty = middle. Not used with waypoints. |
+| Waypoints | `points` | Any number of points (`x`, `y` in %) the line runs through in order, e.g. `points: [{x: 70, y: 20}, {x: 86, y: 20}]`. Each one is reached first vertically, then horizontally; 0/0 is the top left corner. |
 | Colour for positive / negative power | `positiveColor`, `negativeColor` | Line colours per direction. |
 
-Routes run at right angles: vertically out of the module, horizontally at the height you set, vertically into the target. They may share lines. At 0 W or without a reading the line stays still; below 5 W the animation stops while the value stays visible. The card does not split surplus across routes by calculation.
+Routes run at right angles: vertically out of the module, horizontally at the height you set (or through the waypoints), vertically into the target. They may share lines. At 0 W or without a reading the line stays still; below 5 W the animation stops while the value stays visible. The card does not split surplus across routes by calculation.
 
 ### Periods and controls
 

@@ -1,5 +1,5 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "0.32.0";
+const ENERGY_HOUSE_VERSION = "0.33.0";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};
@@ -319,11 +319,13 @@ function photoScene(c,states,history={},previousLevels={}){
     // Room: one row per entity, stacked; a tap on a row opens that entity's HA dialog.
     if(n.kind==="room"&&labelled(n)&&roomEntities(n).length){
       const ids=[n.entity,...roomEntities(n)].filter(Boolean);
-      const rows=ids.map(id=>{const name=states[id]?.attributes.friendly_name||id,v=id===n.entity?reading(states[id]):roomSummary({kind:"room",entities:[id]},states);
-        return [id,name,ids.length>1?`${name.slice(0,16)} ${v}`:v];});
+      const rows=ids.map(id=>{const name=entityName(n,id,states),v=id===n.entity?reading(states[id]):roomSummary({kind:"room",entities:[id]},states);
+        // Without a choice the name is shown when the room has several entities.
+        return [id,name,(n.showNames?.[id]??ids.length>1)?`${n.names?.[id]?name:name.slice(0,16)} ${v}`:v];});
+      if(n.showRoomName==="yes")rows.unshift(["",n.name||"",n.name||""]);
       const width=Math.min(285,Math.max(...rows.map(([,,v])=>20+[...v].length*9.5)));
       const left=Math.max(2,Math.min(898-width,x-width/2)),top=Math.max(2,Math.min(H-34*rows.length,y-1-34*rows.length));
-      return hit(n,`<path d="M${x} ${y}v-8" stroke="white"/>`+rows.map(([id,name,v],i)=>`<foreignObject x="${left}" y="${top+i*34}" width="${width}" height="32"><div xmlns="http://www.w3.org/1999/xhtml" class="pinlabel" data-more="${esc(id)}" title="${esc(name)}"><span>${esc(v)}</span></div></foreignObject>`).join(""));
+      return hit(n,`<path d="M${x} ${y}v-8" stroke="white"/>`+rows.map(([id,name,v],i)=>`<foreignObject x="${left}" y="${top+i*34}" width="${width}" height="32"><div xmlns="http://www.w3.org/1999/xhtml" class="pinlabel" ${id?`data-more="${esc(id)}"`:""} title="${esc(name)}"><span>${esc(v)}</span></div></foreignObject>`).join(""));
     }
     if(labelled(n)){
       const text=m=>{const show=m.showState==="yes"||(m.showState==null&&(m.pinText||m.showName==="yes"));
@@ -448,14 +450,16 @@ function waterText(n,totals){
   return n.waterUnit==="L"?pretty(v*1000,1)+" L":pretty(v,3)+" m³";
 }
 // Orthogonal elbow: vertical at both ends, horizontal in between, at the route's own height
-// (y in % of the picture) or halfway. Routes may share lines.
+// (y in % of the picture) or halfway, or through the route's waypoints. Routes may share lines.
 function directPaths(routes,where,H=600){
   const paths=new Map();
   for(const r of routes){
     if(!routeMeasured(r)||r.from===r.to||!where.has(r.from)||!where.has(r.to))continue;
     const a=where.get(r.from),b=where.get(r.to),own=parseFloat(r.y);
     const mid=Number.isFinite(own)?Math.min(98,Math.max(2,own))*H/100:(a[1]+b[1])/2;
-    paths.set(r,`M${a[0]} ${a[1]} V${mid} H${b[0]} V${b[1]}`);
+    // Waypoints (x/y in %) are reached vertically, then horizontally; the line leaves and enters modules vertically.
+    const pts=(r.points||[]).map(p=>[parseFloat(p.x),parseFloat(p.y)]).filter(p=>p.every(Number.isFinite)).map(([x,y])=>[Math.min(98,Math.max(2,x))*9,Math.min(98,Math.max(2,y))*H/100]);
+    paths.set(r,pts.length?`M${a[0]} ${a[1]} ${pts.map(([x,y])=>`V${y} H${x}`).join(" ")} H${b[0]} V${b[1]}`:`M${a[0]} ${a[1]} V${mid} H${b[0]} V${b[1]}`);
   }
   return paths;
 }
@@ -507,6 +511,7 @@ function weatherLine(c,s){
   return parts.join(" · ");
 }
 const roomEntities=n=>n.kind==="room"?(n.entities||[]).filter(Boolean):[];
+const entityName=(n,id,s)=>n.names?.[id]||s[id]?.attributes.friendly_name||id;
 // group.* is unpacked into its members, light and cover groups count their members themselves.
 const members=(id,s)=>{const list=s[id]?.attributes.entity_id;return Array.isArray(list)?list:[id]};
 function roomSummary(n,s){
@@ -527,7 +532,7 @@ function roomSummary(n,s){
 // One button per room entity: switch it or open/close it, everything else opens its HA dialog.
 function roomButtons(n,s,busy){
   return roomEntities(n).map(id=>{
-    const st=s[id],name=esc(st?.attributes.friendly_name||id),off=busy||!st?"disabled":"";
+    const st=s[id],name=esc(entityName(n,id,s)),off=busy||!st?"disabled":"";
     if(id.startsWith("cover."))return `<button data-entity="${esc(id)}" data-service="cover.open_cover" ${off}>${name} ▲</button><button data-entity="${esc(id)}" data-service="cover.close_cover" ${off}>${name} ▼</button>`;
     if(/^(light|switch|fan|input_boolean|group)\./.test(id))return `<button data-entity="${esc(id)}" data-service="homeassistant.toggle" aria-pressed="${st?.state==="on"}" ${off}>${name}: ${st?.state==="on"?"on":"off"}</button>`;
     return `<button data-more="${esc(id)}">${name}</button>`;
@@ -742,7 +747,7 @@ class EnergyHouse extends HTMLElement{
   }
 }
 const editorCss=`
-:host{display:block;color:var(--primary-text-color,#243830);font:14px system-ui}fieldset,details{border:1px solid var(--divider-color,#b2c3b9);border-radius:10px;margin:8px 0;padding:10px}summary{cursor:pointer;font-weight:600}label{display:grid;gap:3px;font-size:12px;margin:6px 0}input,select,button{font:inherit;color:inherit;background:var(--card-background-color,#fff);padding:8px;border-radius:5px;border:1px solid var(--divider-color,#a7b5ac);max-width:100%;box-sizing:border-box}button{cursor:pointer;margin:5px 4px 0 0}.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:6px}.pair>label{min-width:0}label>input,label>select{width:100%}input[type=color]{height:40px;padding:3px}small{display:block;margin:5px 0}.hint{opacity:.72;font-size:11px;margin:2px 0 0}details.section>summary{font-size:15px}details.sub{padding:6px 10px;margin:6px 0}details.sub>summary{font-weight:500;font-size:13px}legend{font-weight:600;font-size:15px;padding:0 4px}a{color:var(--primary-color,#03a9f4)}a.help{display:block;font-size:12px;margin:8px 0 2px}`;
+:host{display:block;color:var(--primary-text-color,#243830);font:14px system-ui}fieldset,details{border:1px solid var(--divider-color,#b2c3b9);border-radius:10px;margin:8px 0;padding:10px}summary{cursor:pointer;font-weight:600}label{display:grid;align-content:start;gap:3px;font-size:12px;margin:6px 0}.entity{border-top:1px solid var(--divider-color,#b2c3b9);margin-top:8px;padding-top:4px}input,select,button{font:inherit;color:inherit;background:var(--card-background-color,#fff);padding:8px;border-radius:5px;border:1px solid var(--divider-color,#a7b5ac);max-width:100%;box-sizing:border-box}button{cursor:pointer;margin:5px 4px 0 0}.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:6px}.pair>label{min-width:0}.pair>button{align-self:end;margin:0 0 6px}label>input,label>select{width:100%}input[type=color]{height:40px;padding:3px}small{display:block;margin:5px 0}.hint{opacity:.72;font-size:11px;margin:2px 0 0}details.section>summary{font-size:15px}details.sub{padding:6px 10px;margin:6px 0}details.sub>summary{font-weight:500;font-size:13px}legend{font-weight:600;font-size:15px;padding:0 4px}a{color:var(--primary-color,#03a9f4)}a.help{display:block;font-size:12px;margin:8px 0 2px}`;
 class HouseEditor extends HTMLElement{
   constructor(){super();this.root=this.attachShadow({mode:"open"});this.root.addEventListener("change",e=>this.change(e));this.root.addEventListener("click",e=>this.click(e));this.open=new Set(["general"]);}
   setConfig(c){if(JSON.stringify(this.c)===JSON.stringify(c))return;this.c=structuredClone({...stub(),...c});this.draw()}
@@ -758,38 +763,35 @@ class HouseEditor extends HTMLElement{
     const details=(key,title,content,attr="",sub=false)=>`<details data-key="${esc(key)}" ${sub?'class="sub"':""} ${attr} ${this.open.has(key)?"open":""}><summary>${esc(title)}</summary>${content}</details>`;
     const section=(key,title,content)=>details(key,title,content,'class="section"');
     const helpLink=anchor=>`<a class="help" href="${DOCS_URL}#${anchor}" target="_blank" rel="noreferrer">What do these fields do?</a>`;
-    const states=Object.keys(h.states), areas=Object.values(h.areas||{}),devices=Object.values(h.devices||{}), ent=h.entities||{};
-    const areaOf=id=>ent[id]?.area_id || h.devices?.[ent[id]?.device_id]?.area_id;
+    const states=Object.keys(h.states);
     const colors=obj=>[["positiveColor","Colour for positive power",1],["negativeColor","Colour for negative power",-1]].map(([key,title,sign])=>`<label>${title}<input type="color" data-key="${key}" value="${routeColor(obj,sign)}"></label>`).join("");
     const modules=c.nodes.map((n,i)=>{
-      const devs=devices.filter(d=>!n.area||d.area_id===n.area||Object.values(ent).some(e=>e.device_id===d.id&&e.area_id===n.area));
-      const ids=states.filter(id=>(!n.area||areaOf(id)===n.area)&&(!n.device||ent[id]?.device_id===n.device));
+      const ids=states;
       const electric=["pv","ev","grid","device"].includes(n.kind);
       const lid="s"+i,pct=list(lid+"pct",ids.filter(id=>h.states[id].attributes.unit_of_measurement==="%")),kwh=list(lid+"kwh",ids.filter(id=>["Wh","kWh","MWh"].includes(h.states[id].attributes.unit_of_measurement)));
       const meter=(label,key)=>field(label,key,n[key],lid+"kwh","Energy meter in Wh or kWh that only counts up. Used for every period except “Now”.");
-      const filter=n.kind==="house"?"":'<div class="pair">'+choose("Suggest entities from area","area",n.area||"",[["","All areas"],...areas.map(a=>[a.area_id,a.name])])+choose("… and device","device",n.device||"",[["","All devices"],...devs.map(d=>[d.id,d.name_by_user||d.name||d.id])])+"</div>";
       const readings=
         n.kind==="house"?hint("No sensor needed. House consumption = solar + grid import − export + battery discharge − battery charge − vehicle charging. The tile shows how much of it no device explains (“Unassigned”)."):
         n.kind==="battery"?field("State of charge","soc",n.soc,lid+"pct","Sensor in %.")+meter("Charged · energy meter","charged")+meter("Discharged · energy meter","discharged")+hint("Live charging power comes from the routes that start or end at this battery.")+pct+kwh:
         n.kind==="climate"?field("Fossil share of grid power","entity",n.entity,lid+"pct","Sensor in % from the “Electricity Maps” integration (as in the HA energy dashboard).")+field("CO₂ intensity (optional)","co2",n.co2,lid,"Shown as an extra line in the tile.")+hint("Shows how much of the house consumption was low-carbon. Needs the import meter on the grid module.")+pct+list(lid,ids):
         n.kind==="room"?choose("Floor","floor",n.floor||"EG",[["UG","Basement"],["EG","Ground floor"],["OG","Upper floor"],["DG","Attic"],...(n.floor&&!["UG","EG","OG","DG"].includes(n.floor)?[[n.floor,n.floor]]:[])],"Places the room in the picture and in the schematic floor plan.")+
-          (n.entities||[]).map((id,j)=>`<div class="pair"><label>Entity or group<input data-ent="${j}" value="${esc(id)}" list="${lid}room"></label><button data-delent="${j}">Remove</button></div>`).join("")+
-          '<button data-addent>+ Entity</button>'+hint("Lights, covers, switches, climate or sensors, or groups of them. The label shows lights on, average cover position and temperatures. Tapping the room dot switches its lights and covers.")+
-          // Groups often have no area, so they are offered in every room.
-          list(lid+"room",states.filter(id=>/^(light|cover|group|switch|fan|climate|sensor|input_boolean)\./.test(id)&&(!n.area||!areaOf(id)||areaOf(id)===n.area))):
+          choose("Room name in the label","showRoomName",n.showRoomName||"no",[["no","Off"],["yes","On"]],"Adds the display name as the first row of the room label.")+
+          (n.entities||[]).map((id,j)=>`<div class="entity"><label>Entity or group ${j+1}<input data-ent="${j}" value="${esc(id)}" list="${lid}room"></label><div class="pair"><label>Name in the label<input data-entname="${j}" value="${esc(n.names?.[id]||"")}" placeholder="${esc(h.states[id]?.attributes.friendly_name||"")}"></label><label>Show name<select data-entshow="${j}">${[["","Automatic"],["yes","On"],["no","Off"]].map(([v,l])=>`<option value="${v}" ${(n.showNames?.[id]===true?"yes":n.showNames?.[id]===false?"no":"")===v?"selected":""}>${l}</option>`).join("")}</select></label></div><button data-delent="${j}">Remove entity</button></div>`).join("")+
+          '<button data-addent>+ Entity</button>'+hint("Lights, covers, switches, climate or sensors, or groups of them. The label shows lights on, average cover position and temperatures. An empty name uses the HA name; “Automatic” shows names when the room has several entities.")+
+          list(lid+"room",states.filter(id=>/^(light|cover|group|switch|fan|climate|sensor|input_boolean)\./.test(id))):
         n.kind==="water"?field("Water meter or flow sensor","entity",n.entity,lid,"A meter (m³ or L, counting up) gives the consumption per period, a flow sensor the current flow.")+list(lid,ids)+
           '<div class="pair">'+choose("Show","waterMode",n.waterMode||"",[["","Automatic"],["period","Consumption in the period"],["live","Sensor value"]])+choose("Unit","waterUnit",n.waterUnit||"m³",[["m³","m³"],["L","Litres"]])+"</div>":
         field("Power","entity",n.entity,lid,{grid:"W or kW, positive for import and negative for export.",pv:"Production in W or kW.",ev:"Charging power in W or kW, positive while charging.",device:"Consumption in W or kW."}[n.kind])+list(lid,ids)+
           meter({grid:"Import · energy meter",pv:"Production · energy meter",ev:"Charged · energy meter (optional)",device:"Consumption · energy meter (optional)"}[n.kind],"energy")+
           (n.kind==="grid"?meter("Export · energy meter","exported"):"")+
-          (n.kind==="ev"?field("State of charge (optional)","soc",n.soc,lid,"Shown in the picture label and the tile.")+'<div class="pair">'+field("Battery content (optional)","content",n.content,lid,"kWh or %. Rises count as charged, drops as driven.")+field("Battery capacity in kWh","capacity",n.capacity,"","Only needed when the content is in %.")+"</div>":"")+
+          (n.kind==="ev"?field("State of charge (optional)","soc",n.soc,lid,"Shown in the picture label and the tile.")+field("Battery content (optional)","content",n.content,lid,"kWh or %. Rises count as charged, drops as driven.")+field("Battery capacity in kWh","capacity",n.capacity,"","Only needed when the content is in %."):"")+
           (n.kind==="device"?choose("Show in the picture","scene",n.scene||"",[["","Label only"],["heatpump","Heat pump"],["washer","Washing machine (basement)"],["dryer","Dryer (basement)"]],"Draws the device in the 3D house with basement.")+hint("Devices are part of the house consumption and are not used to calculate it."):"")+kwh;
       const label=field("Icon","icon",n.icon,"pinIcons","An mdi: icon. With an icon or “Show value” the module gets a label in the picture.")+
         choose("Show value","showState",n.showState??(n.pinText||n.showName==="yes"?"yes":"no"),[["no","Off"],["yes","On"]])+
         '<div class="pair">'+field("Position X (%)","x",n.x)+field("Position Y (%)","y",n.y)+"</div>"+hint("Empty = default place. Needed for your own picture: 0/0 is the top left corner.");
       const advanced=(electric?choose("Sign","invert",n.invert?"yes":"no",[["no","As measured"],["yes","Invert"]],"Use “Invert” when your sensor reports the opposite direction."):"")+
         field("Control entity (optional)","control",n.control,"controls","A select, input_select, switch, script or button. Its options appear in the tile; select options are sent only after a second tap.");
-      const html=field("Display name","name",n.name)+filter+readings+
+      const html=field("Display name","name",n.name)+readings+
         details(n.id+":label","Label in the picture",label,"",true)+details(n.id+":more","More options",advanced,"",true)+
         '<button data-delete>Remove module</button>'+helpLink(TYPES[n.kind].toLowerCase().replace("₂","2").replace(/ /g,"-")+"-module");
       return details(n.id,!n.name||n.name===TYPES[n.kind]?TYPES[n.kind]:n.name+" · "+TYPES[n.kind],html,`data-index="${i}"`);
@@ -799,7 +801,9 @@ class HouseEditor extends HTMLElement{
       '<div class="pair">'+choose("From","from",r.from,names)+choose("To","to",r.to,names)+"</div>"+
       field("Power From → To","entity",r.entity,"powerIds","W or kW. Negative values reverse the arrow.")+
       field("Power To → From (optional)","reverse",r.reverse,"powerIds","For two separate sensors, e.g. battery charging and discharging. The larger value sets the direction.")+
-      field("Height of the line (Y %)","y",r.y,"","Where the horizontal part runs. Empty = middle.")+
+      (r.points?.length?"":field("Height of the line (Y %)","y",r.y,"","Where the horizontal part runs. Empty = middle. Not used with waypoints."))+
+      (r.points||[]).map((p,j)=>`<div class="pair"><label>Waypoint ${j+1} X (%)<input data-pt="${j}" data-axis="x" value="${esc(p.x??"")}"></label><label>Y (%)<input data-pt="${j}" data-axis="y" value="${esc(p.y??"")}"></label><button data-delpt="${j}">Remove</button></div>`).join("")+
+      '<button data-addpt>+ Waypoint</button>'+hint("The line runs through each waypoint in order, first vertically, then horizontally. 0/0 is the top left corner.")+
       '<div class="pair">'+colors(r)+"</div>"+'<button data-delroute>Remove route</button>',`data-route="${i}"`)).join("");
     const look=c.view==="diagram"?"diagram":c.look||"cellar";
     this.root.innerHTML=`<style>${editorCss}</style>
@@ -808,20 +812,26 @@ ${section("general","General",field("Card title","title",c.title)+choose("Defaul
 ${section("picture","Picture",choose("Picture style","look",look,[["cellar","3D · house with basement"],["photo","3D rendering"],["blueprint","Blueprint · gable roof"],["flat","Blueprint · flat roof"],["diagram","Schematic floor plan"],["custom","Own picture"]],"The 3D house with basement changes with the seasons and shows heat pump, washer and dryer. The floor plan arranges the rooms by floor.")+
   (look==="custom"?field("Picture URL","image",c.image,"","e.g. /local/house.webp in 3:2 format. Place modules with Position X/Y."):"")+
   choose("Preview buttons","preview",c.preview||"no",[["no","Off"],["yes","On"]],"Buttons below the picture to try time of day, weather and season.")+helpLink("picture-options"))}
-${section("sky","Weather and sky",'<div class="pair">'+field("Weather entity","weather",c.weather,"weatherIds","Clouds, rain, snow, fog, thunderstorms and wind.")+field("Sun","sun",c.sun,"sunIds","Day and night. Usually sun.sun.")+"</div>"+
-  '<div class="pair">'+field("Wind speed (optional)","windSpeed",c.windSpeed,"sensorIds")+field("Wind direction (optional)","windDirection",c.windDirection,"sensorIds")+field("Precipitation (optional)","precipitation",c.precipitation,"sensorIds")+"</div>"+
-  hint("Only needed when you have own sensors; otherwise the weather entity is used.")+helpLink("weather-and-sky-options"))}
+${section("sky","Weather and sky",field("Weather entity","weather",c.weather,"weatherIds","Clouds, rain, snow, fog, thunderstorms and wind.")+field("Sun","sun",c.sun,"sunIds","Day and night. Usually sun.sun.")+
+  field("Wind speed (optional)","windSpeed",c.windSpeed,"sensorIds","Own sensor; otherwise the weather entity's wind is used.")+field("Wind direction (optional)","windDirection",c.windDirection,"sensorIds","In ° or as text.")+field("Precipitation (optional)","precipitation",c.precipitation,"sensorIds","Shown in the weather line.")+helpLink("weather-and-sky-options"))}
 <fieldset><legend>Modules</legend>${hint("Each module adds its part to the picture and a tile below it. Open a module to set its sensors.")}${modules}<select aria-label="New module" data-kind>${Object.entries(TYPES).filter(([k])=>!["house","grid","pv"].includes(k)||!c.nodes.some(n=>n.kind===k)).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select><button data-add>Add module</button></fieldset>
 <fieldset><legend>Routes</legend>${hint("Lines the power runs along between two modules, with sensor, colours and height.")}${routes}<button data-addroute ${names.length<2?"disabled":""}>Add route</button>${helpLink("route-fields")}</fieldset>
 ${list("energyIds",states.filter(id=>["Wh","kWh","MWh"].includes(h.states[id].attributes.unit_of_measurement)))}${list("pinIcons",["mdi:battery","mdi:solar-power","mdi:home","mdi:car-electric","mdi:water","mdi:thermometer","mdi:heat-pump-outline","mdi:washing-machine"])}${list("sensorIds",states.filter(id=>id.startsWith("sensor.")))}${list("sunIds",states.filter(id=>id.startsWith("sun.")))}${list("weatherIds",states.filter(id=>id.startsWith("weather.")))}${list("powerIds",states.filter(id=>["W","kW","MW"].includes(h.states[id].attributes.unit_of_measurement)))}${list("controls",states.filter(id=>/^(select|input_select|switch|script|button)\./.test(id)))}`;
   }
   change(e){const t=e.target,k=t.dataset.key;
-    if(t.dataset.ent){const n=this.c.nodes[+t.closest("[data-index]").dataset.index];n.entities[+t.dataset.ent]=t.value.trim();this.save();return;}
+    if(t.dataset.ent){const n=this.c.nodes[+t.closest("[data-index]").dataset.index],j=+t.dataset.ent,old=n.entities[j],id=t.value.trim();n.entities[j]=id;
+      // Name settings follow the entity when it is replaced.
+      for(const k of ["names","showNames"])if(n[k]&&old in n[k]){if(id)n[k][id]=n[k][old];delete n[k][old];}
+      this.save();return;}
+    if(t.dataset.entname||t.dataset.entshow){const n=this.c.nodes[+t.closest("[data-index]").dataset.index],id=n.entities[+(t.dataset.entname||t.dataset.entshow)],v=t.value.trim();
+      const k=t.dataset.entname?"names":"showNames",val=t.dataset.entname?v:v==="yes"?true:v==="no"?false:"";
+      n[k]={...n[k]};if(val==="")delete n[k][id];else n[k][id]=val;if(!Object.keys(n[k]).length)delete n[k];
+      this.save();return;}
+    if(t.dataset.pt){const r=this.c.routes[+t.closest("[data-route]").dataset.route];r.points[+t.dataset.pt][t.dataset.axis]=t.value.trim();this.save();return;}
     if(!k)return;
     const item=t.closest("[data-index]"),route=t.closest("[data-route]");
     const obj=item?this.c.nodes[+item.dataset.index]:route?this.c.routes[+route.dataset.route]:this.c;
     if(k==="look"&&obj===this.c){if(t.value==="diagram")obj.view="diagram";else{delete obj.view;obj.look=t.value}this.save();return;}
-    if(k==="area" && obj.area!==t.value)obj.device="";
     obj[k]=k==="invert"?t.value==="yes":t.value.trim();this.save();}
   click(e){const t=e.target;if(!t.matches("button"))return;
     if(t.hasAttribute("data-add")){const kind=this.root.querySelector("[data-kind]").value,id=kind+"_"+Math.random().toString(36).slice(2,10);this.c.nodes.push({id,kind,name:TYPES[kind]});this.open.add(id)}
@@ -830,7 +840,10 @@ ${list("energyIds",states.filter(id=>["Wh","kWh","MWh"].includes(h.states[id].at
     if(t.hasAttribute("data-delroute"))this.c.routes.splice(+t.closest("details").dataset.route,1);
     const room=t.closest("[data-index]")&&this.c.nodes[+t.closest("[data-index]").dataset.index];
     if(t.hasAttribute("data-addent"))room.entities=[...(room.entities||[]),""];
-    if(t.dataset.delent)room.entities.splice(+t.dataset.delent,1);
+    if(t.dataset.delent){const [id]=room.entities.splice(+t.dataset.delent,1);for(const k of ["names","showNames"])if(room[k]){delete room[k][id];if(!Object.keys(room[k]).length)delete room[k];}}
+    const route=t.closest("[data-route]")&&this.c.routes[+t.closest("[data-route]").dataset.route];
+    if(t.hasAttribute("data-addpt")){const p=route.points?.at(-1);route.points=[...(route.points||[]),{x:p?.x??"50",y:p?.y??"50"}]}
+    if(t.dataset.delpt){route.points.splice(+t.dataset.delpt,1);if(!route.points.length)delete route.points}
     this.save();}
 }
 // HA may cache the resource URL. On each page load, register the fresh module first.

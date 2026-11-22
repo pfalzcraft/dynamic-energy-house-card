@@ -1,0 +1,11 @@
+type: custom:energy-house-card
+title: Unser Energiehaus
+sun: sun.sun
+nodes:
+  - id: haus
+    kind: house
+    name: Hausverbrauch
+  - id: netz
+    kind: grid
+    name: Stromnetz
+routes: []

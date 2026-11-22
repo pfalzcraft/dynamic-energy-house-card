@@ -1,0 +1,24 @@
+<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Energy House · Vorschau</title>
+<style>body{background:#e5eaf0;color:#142235;max-width:790px;margin:1.2em auto;padding:0 12px;font:15px system-ui}nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px}button{padding:8px 12px;border-radius:8px;background:white;border:1px solid #afbdc9;cursor:pointer}button:focus-visible{outline:3px solid #299bc9}ha-card{display:block}energy-house-editor{display:block;margin-top:16px}output{display:block;margin:8px 0}</style>
+<nav><button id="day">Sonnentag</button><button id="rain">Regentag</button><button id="night">Winternacht</button><button id="build">Haus bearbeiten</button></nav><output aria-live="polite"></output><energy-house-card></energy-house-card><energy-house-editor hidden style="display:none"></energy-house-editor>
+<script type="module" src="../dist/energy-house-card.js"></script><script type="module">
+const card=document.querySelector("energy-house-card"),editor=document.querySelector("energy-house-editor");
+const states={};function sensor(id,state,unit,attrs={}){states[id]={entity_id:id,state:String(state),attributes:{unit_of_measurement:unit,...attrs}}}
+const n=(id,kind,name,extra={})=>({id,kind,name,entity:"sensor."+id,...extra});
+let cfg={title:"Energie zu Hause",type:"custom:energy-house-card",weather:"weather.garten",sun:"sun.sun",nodes:[
+ n("pv","pv","Solardach"),n("haus","house","Hausverbrauch"),n("varta","battery","Varta element",{entity:"",soc:"sensor.varta_soc",charged:"sensor.varta_in",discharged:"sensor.varta_out"}),n("anker","battery","Anker SOLIX",{entity:"",soc:"sensor.anker_soc",charged:"sensor.anker_in",discharged:"sensor.anker_out",control:"select.anker_modus"}),n("netz","grid","Stromnetz"),n("ev","ev","Wallbox",{control:"select.wallbox_modus"}),n("wasser","water","Wasser heute"),n("wohnen","room","Wohnzimmer",{floor:"EG"}),n("essen","room","Esszimmer",{floor:"EG"}),n("buero","room","Büro",{floor:"OG"}),n("wind","climate","Wind")],routes:[{from:"pv",to:"anker",entity:"sensor.pv_anker"}]};
+for(const [id,v,u] of [["varta_soc",65,"%"],["anker_soc",44,"%"],["wasser",123,"L"],["wohnen",21.5,"°C"],["essen",21,"°C"],["buero",20,"°C"],["wind",9,"km/h"]]) sensor("sensor."+id,v,u);
+for(const id of ["anker","wallbox"])sensor("select."+id+"_modus","Automatik","",{options:["Automatik","PV-Überschuss","Pause"]});
+const hass={states,areas:{eg:{area_id:"eg",name:"Wohnbereich"}},devices:{thermo:{id:"thermo",name:"Thermometer",area_id:"eg"}},entities:{"sensor.wohnen":{entity_id:"sensor.wohnen",device_id:"thermo"}},async callService(domain,service,data){states[data.entity_id]={...states[data.entity_id],state:data.option};update()}};
+function update(){card.hass=hass;editor.hass=hass}
+function scenario(mode){const night=mode==="night",rain=mode==="rain";
+const vals=night?[0,960,680,280,0,0,0]:rain?[390,950,0,0,560,0,0]:[5600,940,-700,-620,-840,2500,620];
+["pv","haus","varta","anker","netz","ev","pv_anker"].forEach((id,i)=>sensor("sensor."+id,vals[i],"W"));
+sensor("sun.sun",night?"below_horizon":"above_horizon","",{elevation:night?-23:rain?15:38,azimuth:210});
+sensor("weather.garten",night?"snowy":rain?"rainy":"sunny","",{temperature:night?-2:rain?9:19,temperature_unit:"°C"});update()}
+card.setConfig(cfg);editor.setConfig(cfg);scenario("day");
+for(const id of ["day","rain","night"])document.getElementById(id).onclick=()=>scenario(id);
+document.getElementById("build").onclick=()=>{editor.hidden=!editor.hidden;editor.style.display=editor.hidden?"none":"block";if(!editor.hidden)editor.scrollIntoView()};
+editor.addEventListener("config-changed",e=>{cfg=e.detail.config;card.setConfig(cfg)});
+card.addEventListener("hass-more-info",e=>{const id=e.detail.entityId,s=states[id];document.querySelector("output").textContent="Demo · "+id+" · "+(s?.state??"–")+" "+(s?.attributes.unit_of_measurement||"")});
+</script></html>

@@ -1,5 +1,5 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "0.35.0";
+const ENERGY_HOUSE_VERSION = "1.0.0";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};

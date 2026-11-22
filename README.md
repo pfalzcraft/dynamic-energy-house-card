@@ -4,6 +4,16 @@ A Home Assistant dashboard card that shows your home's energy flows on a cut-awa
 
 ![Fully configured house](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/full.jpg)
 
+## Live in action
+
+The picture is animated: power pulses along the routes in their direction, clouds drift, rain, snow and hail fall, lightning flashes, and at night the rooms light up.
+
+| Sunny summer day | Thunderstorm at dusk |
+|---|---|
+| ![Live: summer day](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/anim-day.gif) | ![Live: thunderstorm](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/anim-storm.gif) |
+| **Snow in winter** | **Rainy spring night** |
+| ![Live: snow](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/anim-snow.gif) | ![Live: rainy night](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/anim-night.gif) |
+
 ## The picture follows your configuration
 
 Start with nothing but the grid connection, then add modules. Each module brings its part of the picture: solar panels on the roof, the power pole, the car at the wallbox, battery cabinets and inverter, heat pump, washing machine, water meter, and a label for every room.
@@ -33,6 +43,14 @@ The weather entity drives clouds, rain, snow, hail, thunderstorms, fog and wind.
 | ![Winter night](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/night.jpg) | ![Blueprint](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/blueprint.jpg) |
 
 Picture styles: **3D · house with basement** (default, with seasons), **3D rendering**, **Blueprint · gable roof**, **Blueprint · flat roof**, **Schematic floor plan**, or **Own picture** from a URL such as `/local/house.webp` (3:2 format, place modules with Position X/Y). See [Picture options](#picture-options).
+
+The four seasons follow the date:
+
+![Spring, summer, autumn and winter](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/seasons.jpg)
+
+And the weather follows your weather entity:
+
+![Fog, pouring rain, hail, storm, dusk and a clear night with moon](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/weather.jpg)
 
 ## Devices, readings and a check sum
 

@@ -1,5 +1,5 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "1.0.0";
+const ENERGY_HOUSE_VERSION = "1.0.1";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};
@@ -412,12 +412,12 @@ function batteryLevel(n,s){
   const level=Number.isFinite(pct)?Math.min(100,Math.max(0,pct)):null;
   return {level,label:level===null?"–":pretty(level,1)+" %"};
 }
-function batteryLive(n,s,routes,period="now"){
+function batteryLive(n,s,routes){
   const w=batteryWatts(n,s,routes);
-  return `<small>${w===null?"Power":Math.abs(w)<5?"Idle":w>0?"Discharging":"Charging"}${period?" · "+periodNames[period]:""} <b>${w===null?"–":power(w)}</b></small>`;
+  return `<small>${w===null?"Power":Math.abs(w)<5?"Idle":w>0?"Discharging":"Charging"} <b>${w===null?"–":power(w)}</b></small>`;
 }
-function batteryLines(n,history,period){
-  return `<small>Charged${period?" · "+periodNames[period]:""} <b>${energyText(history[n.charged])}</b></small><small>Discharged${period?" · "+periodNames[period]:""} <b>${energyText(history[n.discharged])}</b></small>`;
+function batteryLines(n,history){
+  return `<small>Charged <b>${energyText(history[n.charged])}</b></small><small>Discharged <b>${energyText(history[n.discharged])}</b></small>`;
 }
 // A car without its own counters: rises of the battery content count as charged, drops as driven.
 // shortcut: hourly means hide charging and driving within the same hour, fine for daily totals.
@@ -666,7 +666,7 @@ class EnergyHouse extends HTMLElement{
     const tiles=c.nodes.map(n=>{const electric=["pv","grid","house","ev","device"].includes(n.kind);
       const v=electric&&live?branch(n,s):{label:n.kind==="ev"?energyText(history[evCharged(n)]):primaryValue(n,s,history)};
       const flow=v.dir>0?"→ House":v.dir<0?"← House":"";
-      return `<button class="tile" data-node="${esc(n.id)}"><span class="name"><ha-icon style="color:${COLORS[n.kind]}" icon="${SCENE_ICONS[n.scene]||"mdi:"+ICONS[n.kind]}"></ha-icon>${esc(n.name||TYPES[n.kind])}</span><span class="value">${esc(v.label)}</span>${flow?`<span class="info"><i class="line active ${v.dir<0?"back":""}"></i>${flow}</span>`:""}${n.kind==="ev"&&n.soc?`<div class="info">State of charge ${esc(reading(s[n.soc]))}</div>`:""}${!live&&(n.kind==="grid"&&n.exported||n.kind==="ev")?`<div class="info">${energyLines(n,history)}</div>`:""}${n.kind==="battery"?`<div class="info">${live?batteryLive(n,s,c.routes,null):batteryLines(n,history,null)}</div>`:""}${n.kind==="house"&&houseNote?`<div class="info">${houseNote}</div>`:""}</button>`;
+      return `<button class="tile" data-node="${esc(n.id)}"><span class="name"><ha-icon style="color:${COLORS[n.kind]}" icon="${SCENE_ICONS[n.scene]||"mdi:"+ICONS[n.kind]}"></ha-icon>${esc(n.name||TYPES[n.kind])}</span><span class="value">${esc(v.label)}</span>${flow?`<span class="info"><i class="line active ${v.dir<0?"back":""}"></i>${flow}</span>`:""}${n.kind==="ev"&&n.soc?`<div class="info">State of charge ${esc(reading(s[n.soc]))}</div>`:""}${!live&&(n.kind==="grid"&&n.exported||n.kind==="ev")?`<div class="info">${energyLines(n,history)}</div>`:""}${n.kind==="battery"?`<div class="info">${live?batteryLive(n,s,c.routes):batteryLines(n,history)}</div>`:""}${n.kind==="house"&&houseNote?`<div class="info">${houseNote}</div>`:""}</button>`;
     }).join("");
     const routes=c.routes.map(r=>{const a=c.nodes.find(n=>n.id===r.from),b=c.nodes.find(n=>n.id===r.to),w=routeWatts(r,s);if(!a||!b||!routeMeasured(r))return "";
       const reverse=w!==null&&w<0;return `<div class="route">${esc((reverse?b:a).name)} <i style="background:${routeColor(r,w)};--tone:${routeColor(r,w)}" class="line ${w?"active":""}"></i> → ${esc((reverse?a:b).name)} · ${w===null?"–":power(w)}</div>`;
@@ -674,17 +674,17 @@ class EnergyHouse extends HTMLElement{
     const selected=c.nodes.find(n=>n.id===this.selected);
     const control=s[selected?.control],opts=control?.attributes?.options||[];
     const metric=c.nodes.filter(n=>["pv","house","grid","battery","ev","device"].includes(n.kind)||n.kind==="climate"&&n.entity||n.energy||waterPeriod(n,s)||n.waterMode==="flow").map(n=>{
-      if(n.kind==="climate")return `<button class="metric" data-node="${esc(n.id)}"><span>${esc(n.name||TYPES[n.kind])}</span><strong>${esc(primaryValue(n,s,history))}</strong><small>${s[n.entity]?.attributes.unit_of_measurement==="%"?"House consumption · "+periodNames[period]:""}</small>${s[n.entity]?.attributes.unit_of_measurement==="%"?`<small>Grid fossil <b>${esc(reading(s[n.entity]))}</b></small>`:""}${n.co2?`<small>CO₂ intensity <b>${esc(reading(s[n.co2]))}</b></small>`:""}</button>`;
-      if(n.kind==="battery")return `<button class="metric" data-node="${esc(n.id)}"><span>${esc(n.name||TYPES[n.kind])}</span><strong>${esc(batteryLevel(n,s).label)}</strong><small>State of charge</small>${live?batteryLive(n,s,c.routes):batteryLines(n,history,period)}</button>`;
+      if(n.kind==="climate")return `<button class="metric" data-node="${esc(n.id)}"><span>${esc(n.name||TYPES[n.kind])}</span><strong>${esc(primaryValue(n,s,history))}</strong>${s[n.entity]?.attributes.unit_of_measurement==="%"?"<small>House consumption</small>":""}${s[n.entity]?.attributes.unit_of_measurement==="%"?`<small>Grid fossil <b>${esc(reading(s[n.entity]))}</b></small>`:""}${n.co2?`<small>CO₂ intensity <b>${esc(reading(s[n.co2]))}</b></small>`:""}</button>`;
+      if(n.kind==="battery")return `<button class="metric" data-node="${esc(n.id)}"><span>${esc(n.name||TYPES[n.kind])}</span><strong>${esc(batteryLevel(n,s).label)}</strong><small>State of charge</small>${live?batteryLive(n,s,c.routes):batteryLines(n,history)}</button>`;
       const carPeriod=n.kind==="ev"&&!live,detail=branch(n,s).label.split(" · ")[0],primary=carPeriod?energyText(history[evCharged(n)]):primaryValue(n,s,history);
-      const caption=carPeriod?"Charged":n.waterMode==="flow"?`Flow · Ø ${FLOW_MINUTES} min`:waterPeriod(n,s)?periodNames[period]:n.display==="period"?periodNames[period]:detail;
-      const exportLine=n.display==="period"&&n.kind==="grid"&&n.exported?`<small>Export · ${periodNames[period]} <b>${energyText(history[n.exported])}</b></small>`:"";
+      const caption=carPeriod?"Charged":n.waterMode==="flow"?`Flow · Ø ${FLOW_MINUTES} min`:waterPeriod(n,s)||n.display==="period"?"":detail;
+      const exportLine=n.display==="period"&&n.kind==="grid"&&n.exported?`<small>Export <b>${energyText(history[n.exported])}</b></small>`:"";
       const own=live?watts(s[n.entity]):history[n.energy],whole=live?houseW:history[HOUSE];
       const known=c.nodes.filter(d=>d.kind==="device").map(d=>live?watts(s[d.entity]):history[d.energy]).filter(Number.isFinite);
       const restLine=n.kind==="house"&&known.length&&whole>0?`<small>Unassigned <b>${live?power(Math.max(0,whole-known.reduce((a,v)=>a+Math.abs(v),0))):energyText(Math.max(0,whole-known.reduce((a,v)=>a+Math.abs(v),0)))}</b></small>`:"";
       const shareLine=n.kind==="device"&&Number.isFinite(own)&&whole>0?`<small>Share of house <b>${pretty(100*Math.abs(own)/whole,0)} %</b></small>`:"";
       const socLine=n.kind==="ev"&&n.soc?`<small>State of charge <b>${esc(reading(s[n.soc]))}</b></small>`:"";
-      return `<button class="metric" data-node="${esc(n.id)}"><span>${esc(n.name||TYPES[n.kind])}</span><strong>${esc(primary)}</strong><small>${esc(caption)}</small>${exportLine}${carPeriod&&n.content?`<small>Driven <b>${energyText(history[n.id+"#driven"])}</b></small>`:""}${socLine}${shareLine}${restLine}${n.kind==="house"?houseNote:""}</button>`;
+      return `<button class="metric" data-node="${esc(n.id)}"><span>${esc(n.name||TYPES[n.kind])}</span><strong>${esc(primary)}</strong>${caption?`<small>${esc(caption)}</small>`:""}${exportLine}${carPeriod&&n.content?`<small>Driven <b>${energyText(history[n.id+"#driven"])}</b></small>`:""}${socLine}${shareLine}${restLine}${n.kind==="house"?houseNote:""}</button>`;
     }).join("");
     const range=this.range(),today=isoDay(new Date(),this.h.config?.time_zone);
     const periods=Object.entries(periodNames).map(([id,label])=>`<button data-period="${id}" aria-pressed="${period===id}">${label}</button>`).join("")+

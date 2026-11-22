@@ -1,11 +1,12 @@
-type: custom:energy-house-card
-title: Unser Energiehaus
+type: custom:dynamic-energy-house-card
+title: Our Energy House
 sun: sun.sun
 nodes:
-  - id: haus
+  - id: house
     kind: house
-    name: Hausverbrauch
-  - id: netz
+    name: House
+  - id: grid
     kind: grid
-    name: Stromnetz
+    name: Grid
+    entity: sensor.grid_power
 routes: []

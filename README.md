@@ -82,7 +82,7 @@ Without the `.webp` pictures next to the card file, the 3D house always shows th
 Open the card editor and work from top to bottom:
 
 1. **Modules → Grid**: give it the grid power sensor. That alone already draws the house.
-2. **Add module** for solar, batteries, vehicles, devices, water, rooms and grid CO₂. Each module adds its part to the picture and a tile below it. The tiles follow the order of the modules; change it with ▲ ▼ in the module's title.
+2. **Add module** for solar, batteries, vehicles, devices, water, rooms and grid CO₂. Each module adds its part to the picture and a tile below it. The tiles follow the order of the modules; change it with ▲ ▼ in the module's title. Routes can be reordered the same way; later routes are drawn on top.
 3. **Routes**: connect modules with lines that show the power flowing between them.
 
 The editor shows a short hint under every field. **Help** at the top of the editor and in the card editor's menu, and **What do these fields do?** in every section, lead to the reference below. The configuration belongs to the card and does not change anything in Home Assistant.

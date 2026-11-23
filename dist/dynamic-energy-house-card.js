@@ -1,5 +1,5 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "1.1.0";
+const ENERGY_HOUSE_VERSION = "1.1.1";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};
@@ -642,7 +642,10 @@ class EnergyHouse extends HTMLElement{
     this.updateStats();
     let c=this.c;const ids=[c.sun,c.weather,c.windSpeed,c.windDirection,c.precipitation,...c.nodes.flatMap(n=>[n.entity,n.soc,n.control,n.energy,n.co2,...roomEntities(n).flatMap(id=>[id,...members(id,this.h.states).flatMap(m=>[m,...members(m,this.h.states)])])]),...c.routes.flatMap(r=>[r.entity,r.reverse])];
     if(this.expanded)this.loadIgnored();
-    const sources=new Set(c.nodes.filter(n=>["pv","grid","battery"].includes(n.kind)).map(n=>n.entity));
+    // Grid, solar and battery feed the house, and routes among them and the house only move that energy;
+    // everything else, the car included, is a consumer in the sum.
+    const feeds=new Set(c.nodes.filter(n=>["pv","grid","battery","house"].includes(n.kind)).map(n=>n.id));
+    const sources=new Set([...c.nodes.filter(n=>["pv","grid","battery"].includes(n.kind)).map(n=>n.entity),...c.routes.filter(r=>feeds.has(r.from)&&feeds.has(r.to)).flatMap(r=>[r.entity,r.reverse])]);
     const sensors=this.expanded?powerList(this.h.states,{used:new Set(ids),sources,ignored:this.ignored||new Set(),sort:this.sensorSort,open:this.sensorsOpen!==false,showIgnored:this.showIgnored}):{html:""},sensorList=sensors.html;
     const key=ids.map(id=>this.h.states[id]);key.push(new Date().getHours(),this.statKey,sensorList);
     // Live updates would rebuild the date inputs and close an open picker.

@@ -1,5 +1,5 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "1.0.1";
+const ENERGY_HOUSE_VERSION = "1.1.0";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};
@@ -488,11 +488,11 @@ function houseBalance(parts){
 }
 const nameOf=n=>n.name||TYPES[n.kind];
 function houseWatts(c,s){
-  return houseBalance(c.nodes.filter(n=>["pv","grid","ev","battery"].includes(n.kind)).map(n=>({name:nameOf(n),f:n.kind==="ev"?-1:1,v:n.kind==="battery"?batteryWatts(n,s,c.routes):signedWatts(n,s)})));
+  return houseBalance(c.nodes.filter(n=>["pv","grid","battery"].includes(n.kind)).map(n=>({name:nameOf(n),f:1,v:n.kind==="battery"?batteryWatts(n,s,c.routes):signedWatts(n,s)})));
 }
 function houseKwh(c,h){
   const hasPv=c.nodes.some(n=>n.kind==="pv");
-  return houseBalance(c.nodes.flatMap(n=>(n.kind==="pv"?[[n.energy,1]]:n.kind==="grid"?[[n.energy,1],...(n.exported||hasPv?[[n.exported,-1]]:[])]:n.kind==="battery"?[[n.discharged,1],[n.charged,-1]]:n.kind==="ev"?[[evCharged(n),-1]]:[]).map(([id,f])=>({name:nameOf(n),f,v:h[id]}))));
+  return houseBalance(c.nodes.flatMap(n=>(n.kind==="pv"?[[n.energy,1]]:n.kind==="grid"?[[n.energy,1],...(n.exported||hasPv?[[n.exported,-1]]:[])]:n.kind==="battery"?[[n.discharged,1],[n.charged,-1]]:[]).map(([id,f])=>({name:nameOf(n),f,v:h[id]}))));
 }
 // Like the HA energy dashboard: grid import counts as fossil by the grid's fossil share
 // (e.g. Electricity Maps), everything else the house used is low-carbon.
@@ -642,7 +642,7 @@ class EnergyHouse extends HTMLElement{
     this.updateStats();
     let c=this.c;const ids=[c.sun,c.weather,c.windSpeed,c.windDirection,c.precipitation,...c.nodes.flatMap(n=>[n.entity,n.soc,n.control,n.energy,n.co2,...roomEntities(n).flatMap(id=>[id,...members(id,this.h.states).flatMap(m=>[m,...members(m,this.h.states)])])]),...c.routes.flatMap(r=>[r.entity,r.reverse])];
     if(this.expanded)this.loadIgnored();
-    const sources=new Set([...c.nodes.filter(n=>["pv","grid","battery","ev"].includes(n.kind)).map(n=>n.entity),...c.routes.flatMap(r=>[r.entity,r.reverse])]);
+    const sources=new Set(c.nodes.filter(n=>["pv","grid","battery"].includes(n.kind)).map(n=>n.entity));
     const sensors=this.expanded?powerList(this.h.states,{used:new Set(ids),sources,ignored:this.ignored||new Set(),sort:this.sensorSort,open:this.sensorsOpen!==false,showIgnored:this.showIgnored}):{html:""},sensorList=sensors.html;
     const key=ids.map(id=>this.h.states[id]);key.push(new Date().getHours(),this.statKey,sensorList);
     // Live updates would rebuild the date inputs and close an open picker.
@@ -680,7 +680,7 @@ class EnergyHouse extends HTMLElement{
       const caption=carPeriod?"Charged":n.waterMode==="flow"?`Flow · Ø ${FLOW_MINUTES} min`:waterPeriod(n,s)||n.display==="period"?"":detail;
       const exportLine=n.display==="period"&&n.kind==="grid"&&n.exported?`<small>Export <b>${energyText(history[n.exported])}</b></small>`:"";
       const own=live?watts(s[n.entity]):history[n.energy],whole=live?houseW:history[HOUSE];
-      const known=c.nodes.filter(d=>d.kind==="device").map(d=>live?watts(s[d.entity]):history[d.energy]).filter(Number.isFinite);
+      const known=c.nodes.filter(d=>d.kind==="device"||d.kind==="ev").map(d=>live?watts(s[d.entity]):history[d.kind==="ev"?evCharged(d):d.energy]).filter(Number.isFinite);
       const restLine=n.kind==="house"&&known.length&&whole>0?`<small>Unassigned <b>${live?power(Math.max(0,whole-known.reduce((a,v)=>a+Math.abs(v),0))):energyText(Math.max(0,whole-known.reduce((a,v)=>a+Math.abs(v),0)))}</b></small>`:"";
       const shareLine=n.kind==="device"&&Number.isFinite(own)&&whole>0?`<small>Share of house <b>${pretty(100*Math.abs(own)/whole,0)} %</b></small>`:"";
       const socLine=n.kind==="ev"&&n.soc?`<small>State of charge <b>${esc(reading(s[n.soc]))}</b></small>`:"";

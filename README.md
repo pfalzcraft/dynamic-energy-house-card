@@ -132,7 +132,7 @@ Energy meters must count up (`state_class` `total` or `total_increasing`, Wh or 
 
 ### House module
 
-No sensor. House consumption = solar + grid import − export + battery discharge − battery charge − vehicle charging. Live from the power sensors, for a period from the energy meters. Missing values are left out and named under “No value”. The tile shows how much of the consumption no device explains (“Unassigned”); a negative balance for a period means a meter does not fit.
+No sensor. House consumption = solar + grid import − export + battery discharge − battery charge. Vehicle charging is part of it, like any other consumer. Live from the power sensors, for a period from the energy meters. Missing values are left out and named under “No value”. The tile shows how much of the consumption no device explains (“Unassigned”); a negative balance for a period means a meter does not fit.
 
 ### Grid module
 

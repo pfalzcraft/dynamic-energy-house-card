@@ -1,5 +1,5 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "1.3.1";
+const ENERGY_HOUSE_VERSION = "2.0.0";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};
@@ -874,23 +874,9 @@ ${list("energyIds",states.filter(id=>["Wh","kWh","MWh"].includes(h.states[id].at
     if(t.dataset.delpt){route.points.splice(+t.dataset.delpt,1);if(!route.points.length)delete route.points}
     this.save();}
 }
-// HA may cache the resource URL. On each page load, register the fresh module first.
-const resourceUrl = new URL(import.meta.url);
-if (/^https?:$/.test(resourceUrl.protocol) &&
-    !resourceUrl.searchParams.has("_ehc_reload") &&
-    !customElements.get("dynamic-energy-house-card")) {
-  resourceUrl.searchParams.set("_ehc_reload", String(Date.now()));
-  try {
-    await import(resourceUrl.href);
-  } catch (error) {
-    console.warn("Dynamic Energy House: update failed, loading the local version.", error);
-  }
-}
 if(!customElements.get("dynamic-energy-house-card")){
   customElements.define("dynamic-energy-house-card",EnergyHouse);
   customElements.define("dynamic-energy-house-card-editor",HouseEditor);
-  // Dashboards set up before the rename (type: custom:energy-house-card) keep working.
-  if(!customElements.get("energy-house-card"))customElements.define("energy-house-card",class extends EnergyHouse{});
   window.customCards=window.customCards||[];
   window.customCards.push({type:"dynamic-energy-house-card",name:"Dynamic Energy House",description:"Interactive energy house with rooms, weather and power flows.",documentationURL:DOCS_URL});
 }

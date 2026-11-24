@@ -230,7 +230,7 @@ Tap a module to open its HA dialog, or, for rooms and modules with a control ent
 
 ## Repository
 
-`dist/dynamic-energy-house-card.js` contains the custom element, renderer, editor and styles with no runtime dependencies and no build step. `assets/` holds the source pictures. Dashboards set up with the earlier name `custom:energy-house-card` keep working.
+`dist/dynamic-energy-house-card.js` contains the custom element, renderer, editor and styles with no runtime dependencies and no build step. `assets/` holds the source pictures.
 
 Documentation: [HA custom cards](https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/) · [HACS dashboard repositories](https://www.hacs.xyz/docs/publish/plugin/).
 

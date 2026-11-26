@@ -1,5 +1,5 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "2.0.0";
+const ENERGY_HOUSE_VERSION = "2.1.0";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};
@@ -361,12 +361,27 @@ function photoScene(c,states,history={},previousLevels={}){
 
 const periodNames={now:"Now",day:"Today",week:"Week",month:"Month",year:"Year",custom:"Range"};
 const isoDay=(date,timeZone)=>new Intl.DateTimeFormat("sv-SE",{timeZone}).format(date);
-// Start and end of a period. A custom range runs from local midnight of its first day to the end of its last day (at most now).
-function periodSpan(period,range,now,timeZone){
-  if(period!=="custom")return [calendarStart(period,now,timeZone),now];
+// Start and end of a range of days: from local midnight of its first day to the end of its last day (at most now).
+function periodSpan(range,now,timeZone){
   const midnight=(day,shift=0)=>calendarStart("day",new Date(Date.parse(day+"T12:00:00Z")+shift*864e5),timeZone);
   const end=midnight(range.end,1);
   return [midnight(range.start),end>now?now:end];
+}
+const addDays=(iso,n)=>new Date(Date.parse(iso+"T12:00:00Z")+n*864e5).toISOString().slice(0,10);
+// Days of the calendar period (weeks start on Monday) that lies `offset` periods before the one containing `today`.
+function periodDays(period,offset,today){
+  if(period==="day"){const d=addDays(today,offset);return {start:d,end:d}}
+  if(period==="week"){const s=addDays(today,7*offset-(new Date(today+"T12:00:00Z").getUTCDay()+6)%7);return {start:s,end:addDays(s,6)}}
+  const [y,m]=today.split("-").map(Number),month=period==="month",day=(yy,mm)=>new Date(Date.UTC(yy,mm,1)).toISOString().slice(0,10);
+  const start=month?day(y,m-1+offset):day(y+offset,0);
+  return {start,end:addDays(month?day(y,m+offset):day(y+offset+1,0),-1)};
+}
+function rangeLabel(period,r,lang){
+  const d=iso=>new Date(iso+"T12:00:00Z"),o={timeZone:"UTC"};
+  if(period==="month")return new Intl.DateTimeFormat(lang,{...o,month:"long",year:"numeric"}).format(d(r.start));
+  if(period==="year")return r.start.slice(0,4);
+  const f=new Intl.DateTimeFormat(lang,{...o,day:"numeric",month:"short",year:"numeric"});
+  return r.start===r.end?f.format(d(r.start)):f.formatRange(d(r.start),d(r.end));
 }
 function calendarStart(period,now,timeZone){
   const clock=new Intl.DateTimeFormat("en-GB",{timeZone,year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"numeric",second:"numeric",hourCycle:"h23"});
@@ -556,13 +571,13 @@ function primaryValue(n,s,history){
 
 const css=`
 .metrics{display:flex;flex-wrap:wrap;padding:12px 9px;gap:6px;background:transparent}.metric{flex:1 1 82px;min-width:0;background:transparent;border:0;text-align:left;padding:4px 7px;color:var(--primary-text-color,#f3eee4)}.metric span,.metric small{display:block;font-size:12px;color:var(--secondary-text-color,#b6c7d9)}.metric{container-type:inline-size}.metric strong{display:block;font-weight:600;font-size:clamp(14px,15cqi,26px);line-height:1.4;white-space:nowrap}.metric small b{white-space:nowrap}.bp text{fill:#8feaff;stroke:none;font:600 11px ui-monospace,monospace;letter-spacing:1.5px}.sim{display:flex;flex-wrap:wrap;gap:4px;padding:8px 12px;align-items:center;font-size:12px;color:var(--secondary-text-color,#b6c7d9)}.sim button{background:var(--secondary-background-color,#213245);border:1px solid var(--divider-color,#526579);border-radius:6px;padding:4px 8px;font-size:12px}.sim button[aria-pressed=true]{background:var(--primary-color,#d3eaf3);color:var(--text-primary-color,#142637)}.expand{width:100%;text-align:left;background:var(--secondary-background-color,#213245);border:0;padding:12px 18px;color:var(--primary-text-color,#f3eee4)}.architecture{background:transparent}.photo-pulse{animation:photoflow 1.3s linear infinite}@keyframes photoflow{to{stroke-dashoffset:-35}}:host{display:block;font-family:var(--primary-font-family,inherit)}ha-card{display:block;background:var(--ha-card-background,var(--card-background-color,#142235));color:var(--primary-text-color,#f3eee4);border-radius:var(--ha-card-border-radius,20px);overflow:hidden}header{padding:17px 18px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px}h2{font-family:var(--ha-card-header-font-family,inherit);font-size:var(--ha-card-header-font-size,24px);font-weight:400;line-height:1.2;margin:0}small{color:var(--secondary-text-color,#b6c7d9);font-size:12px}svg{width:100%;display:block}svg text{fill:#342f28;font:11px system-ui}button{font:inherit;color:inherit;cursor:pointer}.hit{cursor:pointer}.hit:hover,.hit:focus{filter:brightness(1.15)}.fall,.cloud{pointer-events:none}.pulse{animation:dash 1.6s linear infinite}@keyframes dash{to{stroke-dashoffset:-37}}.fall{animation:fall 1.3s linear infinite}.cloud{animation:cloud 16s ease-in-out alternate infinite}@keyframes fall{to{transform:translate(-7px,22px)}}@keyframes cloud{to{transform:translateX(24px)}}.fx-drift{animation:fxdrift linear infinite}@keyframes fxdrift{from{transform:translateX(-320px)}to{transform:translateX(1000px)}}.fx-tile{animation:fxtile linear infinite}@keyframes fxtile{from{transform:translate(0,0)}to{transform:translate(var(--dx),var(--dy))}}.fx-twinkle{animation:fxtwinkle 4s ease-in-out infinite alternate}@keyframes fxtwinkle{to{opacity:.25}}.fx-fog{animation:fxfog 22s ease-in-out infinite alternate}@keyframes fxfog{to{transform:translateX(90px)}}.fx-flash{opacity:0;animation:fxflash 9s linear infinite}.fx-gust{animation:fxgust 1s linear infinite}@keyframes fxgust{from{transform:translateX(-160px)}to{transform:translateX(1060px)}}.fx-leaf{transform-box:fill-box;transform-origin:center;animation:fxleaf 2s linear infinite}@keyframes fxleaf{from{transform:translate(-40px,0) rotate(0)}50%{transform:translate(450px,-40px) rotate(400deg)}to{transform:translate(940px,30px) rotate(800deg)}}@keyframes fxflash{0%,92%,100%{opacity:0}93%{opacity:.75}94%{opacity:.1}95.5%{opacity:.55}97%{opacity:0}}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(145px,100%),1fr));gap:1px;background:var(--divider-color,#526579)}.tile{background:var(--secondary-background-color,#213245);text-align:left;border:0;padding:13px 14px;min-width:0}.name{display:flex;align-items:center;gap:7px;color:var(--secondary-text-color,#b6c7d9);font-size:12px;overflow-wrap:anywhere}.value{display:block;font-weight:600;margin-top:6px;font-size:14px}.info small{display:block}.info{font-size:12px;color:var(--secondary-text-color,#b6c7d9)}.sensors{padding:10px 16px;display:grid;gap:2px}.sensors .expand{padding-left:0}.sorts{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}.sorts button{background:var(--secondary-background-color,#213245);color:var(--primary-text-color,#f3eee4);border:0;border-radius:12px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}.sorts [aria-pressed=true]{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}.sensor.raised b,.sensor.raised span{color:var(--warning-color,#ffa600)}.sensor.high b,.sensor.high span{color:var(--error-color,#db4437)}.sensor{display:flex;align-items:center;border-bottom:1px solid var(--divider-color,#ffffff1f)}.sensor button{display:flex;justify-content:space-between;gap:12px;flex:1;background:none;border:0;padding:5px 0;color:var(--primary-text-color,#f3eee4);font:inherit;font-size:13px;text-align:left;cursor:pointer}.sensor .hide{flex:0 0 32px;justify-content:center;color:var(--secondary-text-color,#b6c7d9)}.sensor.off{opacity:.5}.checksum{margin:0 16px 12px;padding:10px 12px;border-radius:8px;background:var(--secondary-background-color,#213245);font-size:13px}.checksum small{display:block;color:var(--secondary-text-color,#b6c7d9);margin-top:3px}.checksum.good b{color:var(--success-color,#43a047)}.checksum.raised b{color:var(--warning-color,#ffa600)}.checksum.high b{color:var(--error-color,#db4437)}.sensor i{color:var(--secondary-text-color,#b6c7d9);font-style:normal}.sensor b{white-space:nowrap}.routes{padding:10px 16px;display:grid;gap:5px}.route{display:flex;align-items:center;gap:8px;font-size:13px}.line{display:inline-block;position:relative;width:34px;height:2px;background:#516b63;margin:0 5px}.line.active:after{content:"";position:absolute;background:var(--tone,#82dac0);width:7px;height:3px;animation:travel 1.5s linear infinite}.line.back:after{animation-direction:reverse}@keyframes travel{from{left:0}to{left:27px}}.mode{padding:12px 16px;background:var(--secondary-background-color,#213245);border-top:3px solid var(--primary-color,#03a9f4)}.mode button{margin:5px 5px 0 0;padding:7px 9px;background:var(--secondary-background-color,#213245);border:1px solid var(--divider-color,#526579);border-radius:8px}.mode button:disabled{opacity:.5}ha-icon{--mdc-icon-size:18px}@media(prefers-reduced-motion:reduce){*,*:after{animation:none!important}}
-:host{container-type:inline-size;width:100%;min-width:0}.board{display:grid;min-width:0;background:transparent}.scene-wrap{align-self:center;min-width:0}.zoom-toggle{display:none}.picture{align-self:center;min-width:0}.periods{display:flex;flex-wrap:wrap;gap:4px;padding:12px}.periods button{background:transparent;border:1px solid var(--divider-color,#526579);border-radius:8px;padding:8px 11px;min-height:40px;font-size:14px}.periods button[aria-pressed=true]{background:var(--primary-color,#d3eaf3);color:var(--text-primary-color,#142637)}.range{display:flex;flex-wrap:wrap;gap:8px;width:100%}.range label{display:grid;gap:2px;font-size:12px;color:var(--secondary-text-color,#b6c7d9);flex:1}.range input{background:var(--secondary-background-color,#213245);color:var(--primary-text-color,#f3eee4);border:1px solid var(--divider-color,#526579);border-radius:8px;padding:7px;font:inherit}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:4px 12px 12px;gap:6px}.metric{background:var(--secondary-background-color,#213245);border-radius:8px;padding:10px;overflow-wrap:anywhere}.note{display:block;padding:8px 12px}.pinlabel{box-sizing:border-box;width:100%;height:32px;display:flex;align-items:center;justify-content:flex-start;gap:3px;padding:0 6px;color:white;background:#112b3eef;border:1px solid #bdd9e4;border-radius:8px;font:600 16px system-ui}.pinlabel span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pinlabel ha-icon{--mdc-icon-size:21px}
+:host{container-type:inline-size;width:100%;min-width:0}.board{display:grid;min-width:0;background:transparent}.scene-wrap{align-self:center;min-width:0}.zoom-toggle{display:none}.picture{align-self:center;min-width:0}.periods{display:flex;flex-wrap:wrap;gap:4px;padding:12px}.periods button{background:transparent;border:1px solid var(--divider-color,#526579);border-radius:8px;padding:8px 11px;min-height:40px;font-size:14px}.periods button[aria-pressed=true]{background:var(--primary-color,#d3eaf3);color:var(--text-primary-color,#142637)}.datebar{display:flex;gap:6px;width:100%;align-items:stretch}.periods .datebar>button{flex:0 0 48px;font-size:22px;padding:0}.periods .datebar .datefield{flex:1;display:flex;align-items:center;gap:10px;justify-content:flex-start;font-size:16px;padding:0 14px}.datefield ha-icon{--mdc-icon-size:22px;color:var(--secondary-text-color,#b6c7d9)}.periods button:disabled{opacity:.35}.picker{width:100%;display:flex;flex-wrap:wrap;gap:12px;border:1px solid var(--divider-color,#526579);border-radius:12px;padding:10px;box-sizing:border-box}.presets{display:flex;flex-wrap:wrap;gap:6px;width:100%}.periods .presets button{flex:none;min-height:34px;padding:4px 12px;border-radius:17px;font-size:13px}.calendar{width:100%;display:grid;gap:8px}.month{display:flex;align-items:center;justify-content:space-between}.periods .month button{flex:0 0 40px;border:0;font-size:20px;padding:0}.days{display:grid;grid-template-columns:repeat(7,1fr);row-gap:4px;text-align:center}.days span{font-size:12px;color:var(--secondary-text-color,#b6c7d9);padding:4px 0}.periods .days button{border:0;border-radius:0;min-height:38px;padding:0;flex:none}.periods .days button.in{background:color-mix(in srgb,var(--primary-color,#03a9f4) 45%,transparent);color:var(--primary-text-color,#fff)}.periods .days button.start,.periods .days button.end{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}.periods .days button.start{border-radius:19px 0 0 19px}.periods .days button.end{border-radius:0 19px 19px 0}.periods .days button.start.end{border-radius:19px}.actions{display:flex;justify-content:flex-end;gap:8px}.periods .actions button{flex:none}.periods .actions [data-pickok]{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff)}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:4px 12px 12px;gap:6px}.metric{background:var(--secondary-background-color,#213245);border-radius:8px;padding:10px;overflow-wrap:anywhere}.note{display:block;padding:8px 12px}.pinlabel{box-sizing:border-box;width:100%;height:32px;display:flex;align-items:center;justify-content:flex-start;gap:3px;padding:0 6px;color:white;background:#112b3eef;border:1px solid #bdd9e4;border-radius:8px;font:600 16px system-ui}.pinlabel span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pinlabel ha-icon{--mdc-icon-size:21px}
 @container(min-width:840px){.board{grid-template-columns:minmax(0,1fr) clamp(250px,22%,340px);min-height:calc(100svh - 190px)}aside{border-left:1px solid var(--divider-color,#526579);align-content:center}.picture svg{max-height:calc(100svh - 140px)}}
 @container(max-width:839px){.zoom-toggle{display:block;width:100%;min-height:36px;border:0;background:var(--secondary-background-color,#213245);color:var(--primary-text-color,#f3eee4)}.picture{overflow-x:auto}.picture.zoom svg{width:max(100%,740px);max-width:none}.metrics{grid-template-columns:repeat(auto-fit,minmax(min(145px,100%),1fr))}.board{align-content:start}.periods{justify-content:space-between}.periods button{flex:1;min-height:44px}.metric{min-height:80px}}
 
 `;
 class EnergyHouse extends HTMLElement{
-  constructor(){super();this.root=this.attachShadow({mode:"open"});this.root.addEventListener("click",e=>this.click(e));this.root.addEventListener("change",e=>this.pickRange(e));this.root.addEventListener("keydown",e=>{if(e.target.matches("g.hit")&&["Enter"," "].includes(e.key)){e.preventDefault();e.target.dispatchEvent(new MouseEvent("click",{bubbles:true}));}});}
+  constructor(){super();this.root=this.attachShadow({mode:"open"});this.root.addEventListener("click",e=>this.click(e));this.root.addEventListener("keydown",e=>{if(e.target.matches("g.hit")&&["Enter"," "].includes(e.key)){e.preventDefault();e.target.dispatchEvent(new MouseEvent("click",{bubbles:true}));}});}
   connectedCallback(){
     this.timer=setInterval(()=>{this.draw();},60000);
     this.draw();
@@ -574,7 +589,7 @@ class EnergyHouse extends HTMLElement{
     const ids=[...new Set(this.c.nodes.flatMap(n=>n.kind==="battery"?[n.charged,n.discharged]:n.kind==="house"?[]:[waterPeriod(n,this.h.states)?n.entity:n.energy,n.exported,n.kind==="ev"&&n.content]).filter(Boolean))].sort();
     const period=this.period||this.c.period||"day";
     if(period==="now")return this.updateFlow();
-    const now=new Date(),[start,end]=periodSpan(period,this.range(),now,this.h.config?.time_zone);
+    const now=new Date(),[start,end]=periodSpan(this.span(period),now,this.h.config?.time_zone);
     const key=JSON.stringify([period,start,end<now?end:null,ids,Math.floor(now.getTime()/300000)]);
     if(key===this.statKey)return;
     const context=JSON.stringify([period,start,end<now?end:null,ids]);
@@ -628,6 +643,21 @@ class EnergyHouse extends HTMLElement{
   }
   // Default custom range: the last seven days including today.
   range(){const tz=this.h?.config?.time_zone,now=new Date();return this.customRange||={start:isoDay(new Date(now-6*864e5),tz),end:isoDay(now,tz)}}
+  // The days shown: the custom range, or the calendar period moved back by the arrows.
+  span(period){return period==="custom"?this.range():periodDays(period,this.offset||0,isoDay(new Date(),this.h?.config?.time_zone))}
+  openPicker(period){const s=this.span(period);return {month:s.end.slice(0,7),start:s.start,end:s.end}}
+  // Range picker like the HA energy dashboard: presets and a month calendar where two taps choose start and end.
+  pickerHtml(today,lang){
+    const p=this.picker,[y,m]=p.month.split("-").map(Number),lead=(new Date(Date.UTC(y,m-1,1)).getUTCDay()+6)%7,days=new Date(Date.UTC(y,m,0)).getUTCDate(),end=p.end||p.start;
+    const fmt=o=>new Intl.DateTimeFormat(lang,{timeZone:"UTC",...o});
+    const head=[...Array(7)].map((_,i)=>`<span>${fmt({weekday:"narrow"}).format(new Date(Date.UTC(2024,0,1+i)))}</span>`).join("");
+    const cells="<span></span>".repeat(lead)+[...Array(days)].map((_,i)=>{const iso=`${p.month}-${String(i+1).padStart(2,"0")}`,on=iso>=p.start&&iso<=end;
+      return `<button data-day="${iso}" class="${[on&&"in",iso===p.start&&"start",iso===end&&"end"].filter(Boolean).join(" ")}" ${iso>today?"disabled":""}>${i+1}</button>`}).join("");
+    const presets=[["today","Today"],["yesterday","Yesterday"],["week","This week"],["month","This month"],["year","This year"],["7","Last 7 days"],["30","Last 30 days"],["365","Last 365 days"]];
+    return `<div class="picker"><div class="presets">${presets.map(([k,l])=>`<button data-preset="${k}">${l}</button>`).join("")}</div><div class="calendar">`+
+      `<div class="month"><button data-month="-1" aria-label="Previous month">‹</button><b>${fmt({month:"long",year:"numeric"}).format(new Date(Date.UTC(y,m-1,15)))}</b><button data-month="1" aria-label="Next month" ${p.month>=today.slice(0,7)?"disabled":""}>›</button></div>`+
+      `<div class="days">${head}${cells}</div><div class="actions"><button data-pickcancel>Cancel</button><button data-pickok>Select</button></div></div></div>`;
+  }
   static getStubConfig(){return stub()}
   static getConfigElement(){return document.createElement("dynamic-energy-house-card-editor")}
   getCardSize(){return 6}
@@ -689,16 +719,16 @@ class EnergyHouse extends HTMLElement{
       const socLine=n.kind==="ev"&&n.soc?`<small>State of charge <b>${esc(reading(s[n.soc]))}</b></small>`:"";
       return `<button class="metric" data-node="${esc(n.id)}"><span>${esc(n.name||TYPES[n.kind])}</span><strong>${esc(primary)}</strong>${caption?`<small>${esc(caption)}</small>`:""}${exportLine}${carPeriod&&n.content?`<small>Driven <b>${energyText(history[n.id+"#driven"])}</b></small>`:""}${socLine}${shareLine}${restLine}${n.kind==="house"?houseNote:""}</button>`;
     }).join("");
-    const range=this.range(),today=isoDay(new Date(),this.h.config?.time_zone);
+    const today=isoDay(new Date(),this.h.config?.time_zone),lang=this.h.locale?.language,span=live?null:this.span(period),spanLabel=span&&rangeLabel(period,span,lang);
     const periods=Object.entries(periodNames).map(([id,label])=>`<button data-period="${id}" aria-pressed="${period===id}">${label}</button>`).join("")+
-      (period==="custom"?`<div class="range"><label>From<input type="date" data-range="start" value="${range.start}" max="${today}"></label><label>To<input type="date" data-range="end" value="${range.end}" max="${today}"></label></div>`:"");
+      (span?`<div class="datebar"><button data-shift="-1" aria-label="Earlier">‹</button><button class="datefield" data-picker aria-expanded="${!!this.picker}"><ha-icon icon="mdi:calendar"></ha-icon>${esc(spanLabel)}</button><button data-shift="1" aria-label="Later" ${span.end>=today?"disabled":""}>›</button></div>${this.picker?this.pickerHtml(today,lang):""}`:"");
     // Only parts that changed are replaced. The picture keeps its elements (and their animations) and only its
     // live layer is rebuilt, unless the scene itself changed (season, weather, modules).
     const picture=c.view==="diagram"?scene(c,s):photoScene(...this.simulate({...c,geo:[this.h.config?.latitude,this.h.config?.longitude]},s),history,this.previousLevels);
     const [head,rest=""]=picture.split("<!--dyn-->"),[dyn="",tail=""]=rest.split("<!--/dyn-->"),frame=head+tail;
     // Controls of the tapped module sit right below the picture, where the tap happened.
     const mode=selected?`<section class="mode"><b>${esc(selected.name)}</b><div><button data-close>Close</button>${infoEntity(selected)?`<button data-info>More info</button>`:""}${selected.control?`<button data-control>Open control</button>`:""}${opts.map(o=>`<button data-option="${esc(o)}" ${o===control.state||this.busy?"disabled":""}>${esc(o)}</button>`).join("")}${roomButtons(selected,s,this.busy)}</div><small role="status">${esc(this.message||"")}</small></section>`:"";
-    const parts={head:`<h2>${esc(c.title)}</h2><small>${esc(weatherLine(c,s))}</small>`,tools:`${mode}${this.simButtons()}<button class="zoom-toggle" data-zoom aria-pressed="${!!this.zoom}">${this.zoom?"Whole house":"Zoom in"}</button>`,aside:`<nav class="periods" aria-label="Energy period">${periods}</nav><div class="metrics">${metric}</div>${this.statError?"<small class='note'>Statistics could not be loaded.</small>":""}`,below:`<button class="expand" data-expand aria-expanded="${!!this.expanded}">Devices and readings (${periodNames[period]}) ${this.expanded?"▴":"▾"}</button>${this.expanded?`<div class="tiles">${tiles}</div>${sensorList}${sensors.open?checkSum(sensors.sum,houseW):""}`:""}${routes?`<div class="routes">${routes}</div>`:""}`};
+    const parts={head:`<h2>${esc(c.title)}</h2><small>${esc(weatherLine(c,s))}</small>`,tools:`${mode}${this.simButtons()}<button class="zoom-toggle" data-zoom aria-pressed="${!!this.zoom}">${this.zoom?"Whole house":"Zoom in"}</button>`,aside:`<nav class="periods" aria-label="Energy period">${periods}</nav><div class="metrics">${metric}</div>${this.statError?"<small class='note'>Statistics could not be loaded.</small>":""}`,below:`<button class="expand" data-expand aria-expanded="${!!this.expanded}">Devices and readings (${live?periodNames[period]:esc(spanLabel)}) ${this.expanded?"▴":"▾"}</button>${this.expanded?`<div class="tiles">${tiles}</div>${sensorList}${sensors.open?checkSum(sensors.sum,houseW):""}`:""}${routes?`<div class="routes">${routes}</div>`:""}`};
     const pictureClass=`picture ${this.zoom?"zoom":""}`;
     if(!this.root.querySelector?.('[data-part="aside"]')){
       this.root.innerHTML=`<style>${css}</style><ha-card><header data-part="head">${parts.head}</header><div class="board"><div class="scene-wrap"><div class="${pictureClass}">${picture}</div><div data-part="tools">${parts.tools}</div></div><aside data-part="aside">${parts.aside}</aside></div><div data-part="below">${parts.below}</div></ha-card>`;
@@ -714,9 +744,6 @@ class EnergyHouse extends HTMLElement{
     this.previousLevels=Object.fromEntries(c.nodes.filter(n=>n.kind==="battery").map(n=>[n.id,batteryLevel(n,s).level]));
     if(this.zoom && this.root.querySelector){const picture=this.root.querySelector(".picture");if(picture)picture.scrollLeft=pictureScroll;}
   }
-  pickRange(e){const key=e.target.dataset?.range;if(!key||!e.target.value)return;
-    const r={...this.range(),[key]:e.target.value};
-    this.customRange=r.start>r.end?{start:r.end,end:r.start}:r;this.draw(true);}
   // Preview buttons (editor option): simulated time of day, weather and season for the picture.
   simulate(c,s){const sim=c.preview==="yes"&&this.sim||{};if(sim.season)c={...c,season:sim.season};if(!sim.phase&&!sim.cond)return [c,s];
     const sun=c.sun||"sun.sun",weather=c.weather||"weather.simulated",states={...s};
@@ -735,7 +762,21 @@ class EnergyHouse extends HTMLElement{
     if(t.hasAttribute("data-sensors")){this.sensorsOpen=this.sensorsOpen===false;this.draw(true);return;}
     if(t.dataset.sim){this.sim={...this.sim,[t.dataset.sim]:t.dataset.value};this.draw(true);return;}
     if(t.hasAttribute("data-zoom")){this.zoom=!this.zoom;this.draw(true);return;}
-    if(t.hasAttribute("data-period")){this.period=t.dataset.period;this.draw(true);return;}
+    if(t.hasAttribute("data-period")){this.period=t.dataset.period;this.offset=0;this.picker=t.dataset.period==="custom"?this.picker||this.openPicker("custom"):null;this.draw(true);return;}
+    if(t.dataset.shift){const period=this.period||this.c.period||"day",dir=+t.dataset.shift;
+      if(period==="custom"){const r=this.range(),len=Math.round((Date.parse(r.end)-Date.parse(r.start))/864e5)+1;this.customRange={start:addDays(r.start,dir*len),end:addDays(r.end,dir*len)}}
+      else this.offset=Math.min(0,(this.offset||0)+dir);
+      this.picker=null;this.draw(true);return;}
+    if(t.hasAttribute("data-picker")){this.picker=this.picker?null:this.openPicker(this.period||this.c.period||"day");this.draw(true);return;}
+    if(t.dataset.month){const [y,m]=this.picker.month.split("-").map(Number);this.picker.month=new Date(Date.UTC(y,m-1+(+t.dataset.month),1)).toISOString().slice(0,7);this.draw(true);return;}
+    // First tap starts a new range, the second ends it (in either order).
+    if(t.dataset.day){const p=this.picker,d=t.dataset.day;if(p.end||!p.start){p.start=d;p.end=null}else if(d<p.start){p.end=p.start;p.start=d}else p.end=d;this.draw(true);return;}
+    if(t.hasAttribute("data-pickcancel")){this.picker=null;this.draw(true);return;}
+    if(t.hasAttribute("data-pickok")){const p=this.picker;this.customRange={start:p.start,end:p.end||p.start};this.period="custom";this.picker=null;this.draw(true);return;}
+    if(t.dataset.preset){const k=t.dataset.preset,today=isoDay(new Date(),this.h.config?.time_zone);
+      if(Number(k)){this.period="custom";this.customRange={start:addDays(today,1-Number(k)),end:today}}
+      else{this.period=k==="today"||k==="yesterday"?"day":k;this.offset=k==="yesterday"?-1:0}
+      this.picker=null;this.draw(true);return;}
     if(t.hasAttribute("data-expand")){this.expanded=!this.expanded;this.draw(true);return;}
     if(t.hasAttribute("data-node")){const n=this.c.nodes.find(n=>n.id===t.dataset.node);if(!n)return;
       const id=infoEntity(n);

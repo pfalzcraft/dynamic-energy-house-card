@@ -60,13 +60,15 @@ Below the picture, **Devices and readings** opens tiles for every module and a l
 
 ## Installation
 
-### HACS (recommended)
+### Marketplace (recommended)
 
-1. Open HACS and search for **Dynamic Energy House Card**.
-2. Download it and reload the page.
+From Home Assistant 2026.11 on, HACS is built in as the **Marketplace**. On older versions, use HACS the same way.
+
+1. Go to **Settings → Marketplace** (or open HACS) and search for **Dynamic Energy House Card**.
+2. Install it and reload the page.
 3. Edit a dashboard → **Add card** → search for **Dynamic Energy House**. Or paste the YAML from `examples/minimal.yaml`.
 
-HACS adds the resource `/hacsfiles/dynamic-energy-house-card/dynamic-energy-house-card.js` itself.
+The Marketplace (or HACS) adds the dashboard resource itself.
 
 ### Manual
 

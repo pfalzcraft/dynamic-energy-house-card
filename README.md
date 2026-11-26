@@ -224,7 +224,7 @@ Routes run at right angles: vertically out of the module, horizontally at the he
 
 ### Periods and controls
 
-Choose Now, Today, Week, Month, Year or Range below the picture. “Now” shows momentary power; every other period shows the energy from the energy meters, including the running hour. Below the buttons, a date field shows the days of the period; ‹ › go back and forth by one day, week, month or year (a range moves by its length). Tapping the field opens a calendar with presets (today, yesterday, this week/month/year, last 7/30/365 days): tap the first and the last day, then Select. Ranges are whole days in the HA time zone; the default range is the last seven days.
+Below the picture, the **Now** button shows momentary power; the date field next to it chooses a period and shows the energy from the energy meters, including the running hour. The field shows the days of the period; ‹ › go back and forth by one day, week, month or year (a range moves by its length). Tapping the field opens a calendar with presets (today, yesterday, this week/month/year, last 7/30/365 days): tap the first and the last day, then Select. Ranges are whole days in the HA time zone; the default range is the last seven days.
 
 Tap a module to open its HA dialog, or, for rooms and modules with a control entity, its controls directly below the picture. Background, tiles, buttons and text follow your HA theme (light or dark); only the value labels in the picture stay dark so they remain readable on the photo. Animations respect reduced motion.
 

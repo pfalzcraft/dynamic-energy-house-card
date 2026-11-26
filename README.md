@@ -62,10 +62,9 @@ Below the picture, **Devices and readings** opens tiles for every module and a l
 
 ### HACS (recommended)
 
-1. Open HACS → menu (⋮) → **Custom repositories**.
-2. Add `https://github.com/pfalzcraft/dynamic-energy-house-card` with type **Dashboard**.
-3. Search for **Dynamic Energy House Card**, download it and reload the page.
-4. Edit a dashboard → **Add card** → search for **Dynamic Energy House**. Or paste the YAML from `examples/minimal.yaml`.
+1. Open HACS and search for **Dynamic Energy House Card**.
+2. Download it and reload the page.
+3. Edit a dashboard → **Add card** → search for **Dynamic Energy House**. Or paste the YAML from `examples/minimal.yaml`.
 
 HACS adds the resource `/hacsfiles/dynamic-energy-house-card/dynamic-energy-house-card.js` itself.
 

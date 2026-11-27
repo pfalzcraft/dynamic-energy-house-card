@@ -1,5 +1,5 @@
 // Energy House Card · native Home Assistant dashboard component
-const ENERGY_HOUSE_VERSION = "2.2.1";
+const ENERGY_HOUSE_VERSION = "2.2.2";
 const DOCS_URL = "https://github.com/pfalzcraft/dynamic-energy-house-card";
 const TYPES = {house:"House",grid:"Grid",pv:"Solar",battery:"Battery",ev:"Vehicle",water:"Water",room:"Room",climate:"Grid CO₂",device:"Device"};
 const COLORS = {house:"#f4bd86",grid:"#a7bbf0",pv:"#f2ce72",battery:"#80dbc2",ev:"#86cfef",water:"#93d3f5",room:"#d9c6aa",climate:"#c1d2b1",device:"#e7a9d6"};
@@ -108,6 +108,12 @@ const photoAssets = {house:"data:image/webp;base64,UklGRvJYAwBXRUJQVlA4IOZYAwBwc
 // 3D house with basement: an empty base picture plus one cut-out layer per element, all in 900×600 picture units.
 // Season pictures (spring_day.webp … winter_night.webp) are separate files in the folder energy-house-card/ next to this file.
 const seasonBase=new URL("dynamic-energy-house-card-",import.meta.url).href;
+// HACS / the Marketplace installs only .js files, so each season picture is a module next to the card, loaded on first use.
+const seasonPics={};
+function seasonPic(name){
+  if(!(name in seasonPics)){seasonPics[name]="";import(`${seasonBase}${name}.js`).then(m=>{seasonPics[name]=m.default;window.dispatchEvent(new Event("energy-house-picture"))}).catch(()=>{})}
+  return seasonPics[name];
+}
 const SEASONS=["winter","winter","spring","spring","spring","summer","summer","summer","autumn","autumn","autumn","winter"];
 // 0 = day picture, 1 = night picture; in between both are blended (dusk).
 function nightShare(c,states){
@@ -353,7 +359,7 @@ function photoScene(c,states,history={},previousLevels={}){
   const art=bp?blueprintArt(c,flat):null;
   const heatpump=byKind("device").find(n=>n.scene==="heatpump");
   // The embedded picture stays underneath, so the card still works without the season folder.
-  const seasonImg=(t,o=1)=>`<image width="900" height="600" opacity="${o}" href="${seasonBase}${season}_${t}.webp"/>`;
+  const seasonImg=(t,o=1)=>{const href=seasonPic(`${season}_${t}`);return href?`<image width="900" height="600" opacity="${o}" href="${href}"/>`:""};
   const backdrop=cellar?`<image width="900" height="600" href="${cellarAssets.base.href}"/>`+(night<1?seasonImg("day"):"")+(night>0?seasonImg("night",night.toFixed(2)):"")+(byKind("grid").length?layer("grid"):"")+(panel||byKind("battery").length?layer("inverter"):"")+(byKind("water").length?layer("water"):"")+(heatpump?still(heatpump,layer("heatpump")):""):bp?art.bg+fx.back+art.house:`<image width="900" height="600" preserveAspectRatio="xMidYMid slice" href="${look==="custom"?esc(c.image):photoAssets.house}"/>`;
   const car=!ev||look==="custom"?"":still(ev,cellar?layer("ev"):bp?blueprintCar:`<image x="552" y="422" width="316" height="136" href="${photoAssets.car}"/>`);
   return `<svg class="architecture" viewBox="0 0 900 ${H}" aria-label="Energy flows in the house"><defs>${fx.defs}${bp?blueprintDefs:""}<linearGradient id="enclosure"><stop stop-color="#e6e8e6"/><stop offset=".85" stop-color="#aab0b8"/><stop offset="1" stop-color="#88939f"/></linearGradient><pattern id="silicon" width="10" height="8" patternUnits="userSpaceOnUse"><rect width="10" height="8" fill="#21384e"/><path d="M0 0h10M0 0v8" stroke="#62758e" stroke-width=".55"/></pattern></defs>${backdrop}${pv}${car}${fx.front}<g data-part="dyn"><!--dyn-->${batteries}${routes}${pins}<!--/dyn--></g>${fx.fall}</svg>`;
@@ -580,9 +586,10 @@ class EnergyHouse extends HTMLElement{
   constructor(){super();this.root=this.attachShadow({mode:"open"});this.root.addEventListener("click",e=>this.click(e));this.root.addEventListener("keydown",e=>{if(e.target.matches("g.hit")&&["Enter"," "].includes(e.key)){e.preventDefault();e.target.dispatchEvent(new MouseEvent("click",{bubbles:true}));}});}
   connectedCallback(){
     this.timer=setInterval(()=>{this.draw();},60000);
+    this.onPicture=()=>this.draw(true);window.addEventListener("energy-house-picture",this.onPicture);
     this.draw();
   }
-  disconnectedCallback(){clearInterval(this.timer);this.statKey=null;}
+  disconnectedCallback(){clearInterval(this.timer);window.removeEventListener("energy-house-picture",this.onPicture);this.statKey=null;}
   getGridOptions(){return {columns:"full",rows:"auto"}}
   getLayoutOptions(){return {grid_columns:12,grid_rows:"auto"}}
   updateStats(){

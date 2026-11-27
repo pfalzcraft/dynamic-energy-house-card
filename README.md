@@ -78,11 +78,11 @@ The Marketplace (or HACS) adds the dashboard resource itself.
 
 ### Manual
 
-1. Copy all files from `dist/` (`dynamic-energy-house-card.js` and the `dynamic-energy-house-card-*.webp` pictures) to `/config/www/`. Restart Home Assistant if `www` did not exist before.
+1. Copy all files from `dist/` (`dynamic-energy-house-card.js` and the `dynamic-energy-house-card-*.js` season pictures) to `/config/www/`. Restart Home Assistant if `www` did not exist before.
 2. As an administrator, go to Settings → Dashboards → Resources and add `/local/dynamic-energy-house-card.js` as a JavaScript module. Reload the page.
 3. Add the card as above.
 
-Without the `.webp` pictures next to the card file, the 3D house always shows the summer picture.
+Without the season picture files next to the card file, the 3D house always shows the summer picture.
 
 ## Building your house
 

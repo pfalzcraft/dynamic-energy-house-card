@@ -2,6 +2,10 @@
 
 A Home Assistant dashboard card that shows your home's energy flows on a cut-away house. Solar, grid, batteries, cars, heat pump, appliances, water and rooms appear in the picture only when you add them. Power flows run along routes you define, with your own colours and line positions. Weather, time of day, season, sun and moon are live.
 
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=pfalzcraft&repository=dynamic-energy-house-card)
+
+<a href="https://buymeacoffee.com/pfalzcraft"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="40"></a>
+
 ![Fully configured house](https://raw.githubusercontent.com/pfalzcraft/dynamic-energy-house-card/main/docs/full.jpg)
 
 ## Live in action
@@ -63,6 +67,8 @@ Below the picture, **Devices and readings** opens tiles for every module and a l
 ### Marketplace (recommended)
 
 From Home Assistant 2026.11 on, HACS is built in as the **Marketplace**. On older versions, use HACS the same way.
+
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=pfalzcraft&repository=dynamic-energy-house-card)
 
 1. Go to **Settings → Marketplace** (or open HACS) and search for **Dynamic Energy House Card**.
 2. Install it and reload the page.
